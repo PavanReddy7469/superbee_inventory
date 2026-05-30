@@ -1,0 +1,142 @@
+const pool = require('../config/database');
+const { v4: uuidv4 } = require('uuid');
+
+// Get all AE requests
+exports.getAllRequests = async (req, res) => {
+  try {
+    const [requests] = await pool.query(`
+      SELECT * FROM ae_requests
+      ORDER BY created_at DESC
+    `);
+    
+    // Parse items JSON
+    const formattedRequests = requests.map(req => ({
+      ...req,
+      items: typeof req.items === 'string' ? JSON.parse(req.items) : req.items
+    }));
+    
+    res.json(formattedRequests);
+  } catch (error) {
+    console.error('Error fetching AE requests:', error);
+    res.status(500).json({ error: 'Failed to fetch AE requests' });
+  }
+};
+
+// Create new AE request
+exports.createRequest = async (req, res) => {
+  try {
+    const { drone_number, uin_number, items, requested_by, email } = req.body;
+    
+    if (!drone_number || !uin_number || !items || items.length === 0) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    const requestId = uuidv4();
+    
+    await pool.query(
+      `INSERT INTO ae_requests (id, drone_number, uin_number, items, requested_by, email, status)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+      [requestId, drone_number, uin_number, JSON.stringify(items), requested_by, email]
+    );
+    
+    res.status(201).json({
+      message: 'AE request created successfully',
+      id: requestId
+    });
+  } catch (error) {
+    console.error('Error creating AE request:', error);
+    res.status(500).json({ error: 'Failed to create AE request' });
+  }
+};
+
+// Accept AE request and decrement inventory
+exports.acceptRequest = async (req, res) => {
+  const connection = await pool.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+    
+    const { id } = req.params;
+    
+    // Get request details
+    const [requests] = await connection.query('SELECT * FROM ae_requests WHERE id = ?', [id]);
+    
+    if (requests.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Request not found' });
+    }
+    
+    const request = requests[0];
+    
+    if (request.status !== 'pending') {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Request is not pending' });
+    }
+    
+    // Parse items
+    const items = typeof request.items === 'string' ? JSON.parse(request.items) : request.items;
+    
+    // Decrement inventory for each item
+    for (const item of items) {
+      const [parts] = await connection.query(
+        'SELECT quantity FROM inventory_parts WHERE sku = ?',
+        [item.part_id]
+      );
+      
+      if (parts.length === 0) {
+        await connection.rollback();
+        return res.status(400).json({ error: `Part ${item.part_id} not found` });
+      }
+      
+      if (parts[0].quantity < item.quantity) {
+        await connection.rollback();
+        return res.status(400).json({ 
+          error: `Insufficient quantity for part ${item.part_id}. Available: ${parts[0].quantity}, Requested: ${item.quantity}` 
+        });
+      }
+      
+      // Update inventory
+      await connection.query(
+        'UPDATE inventory_parts SET quantity = quantity - ? WHERE sku = ?',
+        [item.quantity, item.part_id]
+      );
+    }
+    
+    // Update request status
+    await connection.query(
+      'UPDATE ae_requests SET status = ?, processed_at = NOW() WHERE id = ?',
+      ['accepted', id]
+    );
+    
+    await connection.commit();
+    
+    res.json({ message: 'Request accepted and inventory updated successfully' });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error accepting request:', error);
+    res.status(500).json({ error: 'Failed to accept request' });
+  } finally {
+    connection.release();
+  }
+};
+
+// Reject AE request
+exports.rejectRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const [result] = await pool.query(
+      'UPDATE ae_requests SET status = ?, processed_at = NOW() WHERE id = ? AND status = "pending"',
+      ['rejected', id]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Request not found or already processed' });
+    }
+    
+    res.json({ message: 'Request rejected successfully' });
+  } catch (error) {
+    console.error('Error rejecting request:', error);
+    res.status(500).json({ error: 'Failed to reject request' });
+  }
+};
