@@ -20,6 +20,7 @@ interface CartContextType {
   items: CartItem[];
   addItem: (part: InventoryPart, quantity: number) => void;
   removeItem: (partId: string) => void;
+  updateQuantity: (partId: string, quantity: number) => void;
   clear: () => void;
 }
 
@@ -42,10 +43,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => prev.filter((i) => i.part.id !== partId));
   };
 
+  const updateQuantity = (partId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeItem(partId);
+      return;
+    }
+    setItems((prev) => 
+      prev.map((i) => i.part.id === partId ? { ...i, quantity } : i)
+    );
+  };
+
   const clear = () => setItems([]);
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, clear }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clear }}>
       {children}
     </CartContext.Provider>
   );

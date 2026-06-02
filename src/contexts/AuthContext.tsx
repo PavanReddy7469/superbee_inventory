@@ -26,7 +26,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  updatePassword: (newPassword: string) => Promise<void>;
+  changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -85,13 +85,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updatePassword = async (newPassword: string) => {
-    // TODO: Implement password update API
-    console.log('Password update not yet implemented');
+  const changePassword = async (oldPassword: string, newPassword: string) => {
+    await authAPI.changePassword(oldPassword, newPassword);
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signOut, updatePassword }}>
+    <AuthContext.Provider value={{ user, profile, loading, signIn, signOut, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

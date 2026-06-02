@@ -108,3 +108,40 @@ exports.getProfile = async (req, res) => {
 exports.logout = (req, res) => {
   res.json({ message: 'Logout successful' });
 };
+
+// Change Password
+exports.changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ error: 'Old password and new password required' });
+    }
+
+    // Get user from database
+    const [users] = await db.query('SELECT password_hash FROM users WHERE id = ?', [req.user.id]);
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = users[0];
+
+    // Verify old password
+    const validPassword = await bcrypt.compare(oldPassword, user.password_hash);
+    if (!validPassword) {
+      return res.status(400).json({ error: 'Invalid current password' });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(newPassword, salt);
+
+    // Update password
+    await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, req.user.id]);
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ error: 'Failed to update password' });
+  }
+};

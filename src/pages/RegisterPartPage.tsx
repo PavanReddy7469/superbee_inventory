@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import { inventoryAPI, categoriesAPI } from '../lib/api';
-import { Upload, X, QrCode, AlertCircle, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Upload, X, QrCode, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 // ── Static Vendors / Manufacturers ──
 const VENDOR_OPTIONS = [
@@ -97,7 +96,6 @@ export default function RegisterPartPage() {
   const [generatedSKU, setGeneratedSKU] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {

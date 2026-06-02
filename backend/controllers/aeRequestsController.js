@@ -104,8 +104,8 @@ exports.acceptRequest = async (req, res) => {
     
     // Update request status
     await connection.query(
-      'UPDATE ae_requests SET status = ?, processed_at = NOW() WHERE id = ?',
-      ['accepted', id]
+      'UPDATE ae_requests SET status = ?, updated_at = NOW() WHERE id = ?',
+      ['approved', id]
     );
     
     await connection.commit();
@@ -126,7 +126,7 @@ exports.rejectRequest = async (req, res) => {
     const { id } = req.params;
     
     const [result] = await pool.query(
-      'UPDATE ae_requests SET status = ?, processed_at = NOW() WHERE id = ? AND status = "pending"',
+      'UPDATE ae_requests SET status = ?, updated_at = NOW() WHERE id = ? AND status = "pending"',
       ['rejected', id]
     );
     
@@ -138,5 +138,26 @@ exports.rejectRequest = async (req, res) => {
   } catch (error) {
     console.error('Error rejecting request:', error);
     res.status(500).json({ error: 'Failed to reject request' });
+  }
+};
+
+// Withdraw AE request
+exports.withdrawRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const [result] = await pool.query(
+      'UPDATE ae_requests SET status = ?, updated_at = NOW() WHERE id = ? AND status = "pending"',
+      ['withdrawn', id]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Request not found or already processed' });
+    }
+    
+    res.json({ message: 'Request withdrawn successfully' });
+  } catch (error) {
+    console.error('Error withdrawing request:', error);
+    res.status(500).json({ error: 'Failed to withdraw request' });
   }
 };

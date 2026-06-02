@@ -181,16 +181,16 @@ export default function HomePage() {
                 Leading the future of aerial innovation with cutting-edge drone technology and inventory systems.
               </p>
               <div className="flex space-x-3">
-                <a href="#" className="bg-white hover:bg-cyan-400 p-2.5 rounded transition">
+                <a href="https://facebook.com/superbeeaeronautics" target="_blank" rel="noopener noreferrer" className="bg-white hover:bg-cyan-400 p-2.5 rounded transition">
                   <Facebook className="h-5 w-5 text-slate-900" />
                 </a>
-                <a href="#" className="bg-white hover:bg-cyan-400 p-2.5 rounded transition">
+                <a href="https://twitter.com/superbeeaero" target="_blank" rel="noopener noreferrer" className="bg-white hover:bg-cyan-400 p-2.5 rounded transition">
                   <Twitter className="h-5 w-5 text-slate-900" />
                 </a>
-                <a href="#" className="bg-white hover:bg-cyan-400 p-2.5 rounded transition">
+                <a href="https://linkedin.com/company/superbeeaeronautics" target="_blank" rel="noopener noreferrer" className="bg-white hover:bg-cyan-400 p-2.5 rounded transition">
                   <Linkedin className="h-5 w-5 text-slate-900" />
                 </a>
-                <a href="#" className="bg-white hover:bg-cyan-400 p-2.5 rounded transition">
+                <a href="https://instagram.com/superbeeaeronautics" target="_blank" rel="noopener noreferrer" className="bg-white hover:bg-cyan-400 p-2.5 rounded transition">
                   <Instagram className="h-5 w-5 text-slate-900" />
                 </a>
               </div>
@@ -199,10 +199,10 @@ export default function HomePage() {
             <div>
               <h3 className="text-white font-semibold text-lg mb-4">Useful Links</h3>
               <ul className="space-y-3">
-                <li><a href="#" className="text-slate-400 hover:text-cyan-400">Home</a></li>
-                <li><a href="#" className="text-slate-400 hover:text-cyan-400">About Us</a></li>
-                <li><a href="#" className="text-slate-400 hover:text-cyan-400">Services</a></li>
-                <li><a href="#" className="text-slate-400 hover:text-cyan-400">Contact Us</a></li>
+                <li><a href="/" className="text-slate-400 hover:text-cyan-400">Home</a></li>
+                <li><a href="https://superbeeaeronautics.com" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-cyan-400">About Us</a></li>
+                <li><a href="https://superbeeaeronautics.com" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-cyan-400">Services</a></li>
+                <li><a href="mailto:info@superbeeaeronautics.com" className="text-slate-400 hover:text-cyan-400">Contact Us</a></li>
                 <li><a href="/login" className="text-slate-400 hover:text-cyan-400">Login</a></li>
               </ul>
             </div>

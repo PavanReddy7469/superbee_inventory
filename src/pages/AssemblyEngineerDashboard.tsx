@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { aeRequestsAPI, inventoryAPI, dashboardAPI } from '../lib/api';
+import { aeRequestsAPI, inventoryAPI } from '../lib/api';
 import {
     Package,
     ShoppingCart,
@@ -62,8 +62,12 @@ export default function AssemblyEngineerDashboard() {
             setLowStockCount(parts.filter((p: any) => Number(p.quantity) <= 5).length);
 
             // Fetch dashboard stats for drone count
-            const statsResponse = await dashboardAPI.getStats();
-            setDroneCount(statsResponse.data.totalBuyers || 0);
+            try {
+              const dronesData = JSON.parse(localStorage.getItem('mockDrones') || '[]');
+              setDroneCount(dronesData.filter((d: any) => d.status === 'active' || d.status === 'ready_to_fly').length);
+            } catch {
+              setDroneCount(0);
+            }
         } catch (error) {
             console.error('Error loading dashboard data:', error);
         }
@@ -74,7 +78,7 @@ export default function AssemblyEngineerDashboard() {
     const withdrawRequest = async (id: string) => {
         if (!confirm('Withdraw this request? This cannot be undone.')) return;
         try {
-            await aeRequestsAPI.reject(id);
+            await aeRequestsAPI.withdraw(id);
             loadData(); // Reload data after withdrawal
         } catch (error) {
             console.error('Error withdrawing request:', error);

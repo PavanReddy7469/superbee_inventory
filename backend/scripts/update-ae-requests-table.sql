@@ -12,11 +12,10 @@ CREATE TABLE ae_requests (
   requested_by VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL,
   items JSON NOT NULL,
-  status ENUM('pending', 'accepted', 'rejected') DEFAULT 'pending',
+  status ENUM('pending', 'approved', 'rejected', 'withdrawn') DEFAULT 'pending',
   notes TEXT,
-  processed_at TIMESTAMP NULL,
+  updated_at TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_status (status),
   INDEX idx_created_at (created_at),
   INDEX idx_drone_number (drone_number)

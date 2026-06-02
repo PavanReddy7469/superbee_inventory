@@ -18,4 +18,7 @@ router.post('/:id/accept', aeRequestsController.acceptRequest);
 // Reject AE request
 router.post('/:id/reject', aeRequestsController.rejectRequest);
 
+// Withdraw AE request
+router.post('/:id/withdraw', aeRequestsController.withdrawRequest);
+
 module.exports = router;

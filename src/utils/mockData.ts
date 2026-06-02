@@ -57,13 +57,12 @@ export const mockInventoryParts = [
   { id: 'p23', sku: 'PDB-5V12V', name: 'Power Distribution Board 5V/12V', category_id: '8', manufacturer: 'Matek', serial_number: 'SN-PDB-001', quantity: 25, price: 980.00, status: 'active' }
 ];
 
-// Drone Types Mock Data
 export const mockDroneTypes = [
-  { id: 'dt1', name: 'Quadcopter X450', description: 'Standard 450mm quadcopter for training and photography', manufacturer: 'SuperBee Custom' },
-  { id: 'dt2', name: 'Hexacopter H680', description: 'Heavy-lift 680mm hexacopter for payload delivery', manufacturer: 'SuperBee Custom' },
-  { id: 'dt3', name: 'Racing Drone R250', description: 'High-speed 250mm racing quadcopter', manufacturer: 'SuperBee Custom' },
-  { id: 'dt4', name: 'Surveillance S800', description: 'Long-range 800mm octocopter for surveillance', manufacturer: 'SuperBee Custom' },
-  { id: 'dt5', name: 'Agri Drone AG1000', description: '1000mm agricultural spray drone', manufacturer: 'SuperBee Custom' }
+  { id: 'dt1', name: 'Quadcopter X450', description: 'Standard 450mm quadcopter for training and photography', manufacturer: 'SuperBee Custom', status: 'ready_to_fly' },
+  { id: 'dt2', name: 'Hexacopter H680', description: 'Heavy-lift 680mm hexacopter for payload delivery', manufacturer: 'SuperBee Custom', status: 'ready_to_fly' },
+  { id: 'dt3', name: 'Racing Drone R250', description: 'High-speed 250mm racing quadcopter', manufacturer: 'SuperBee Custom', status: 'ready_to_fly' },
+  { id: 'dt4', name: 'Surveillance S800', description: 'Long-range 800mm octocopter for surveillance', manufacturer: 'SuperBee Custom', status: 'ready_to_fly' },
+  { id: 'dt5', name: 'Agri Drone AG1000', description: '1000mm agricultural spray drone', manufacturer: 'SuperBee Custom', status: 'ready_to_fly' }
 ];
 
 // Drones Mock Data

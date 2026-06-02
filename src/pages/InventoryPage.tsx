@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { inventoryAPI, categoriesAPI } from '../lib/api';
+import { inventoryAPI } from '../lib/api';
 import {
   Plus, Search, QrCode, Edit, Trash2, Download, X,
   FileText, Eye, ArrowUpDown, PackageCheck, PackageX, Save, AlertTriangle
@@ -9,12 +9,6 @@ import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 
 // Type definitions
-interface Category {
-  id: string;
-  name: string;
-  description?: string;
-  status: 'active' | 'inactive';
-}
 
 interface InventoryPart {
   id: string;
@@ -44,7 +38,6 @@ interface EditForm {
 
 export default function InventoryPage() {
   const [parts, setParts] = useState<InventoryPart[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   // QR
@@ -78,15 +71,8 @@ export default function InventoryPage() {
 
   const fetchParts = async () => {
     try {
-      const [partsResponse, categoriesResponse] = await Promise.all([
-        inventoryAPI.getAll(),
-        categoriesAPI.getAll()
-      ]);
-
+      const partsResponse = await inventoryAPI.getAll();
       const partsData = partsResponse.data;
-      const categoriesData = categoriesResponse.data;
-
-      setCategories(categoriesData);
 
       // Map category names to parts and ensure numeric fields are numbers
       const partsWithCategories = partsData.map((part: any) => ({

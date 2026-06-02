@@ -54,10 +54,25 @@ export default function AddDronePage() {
         setSaving(true);
         await new Promise(r => setTimeout(r, 400));
 
+        let finalTypeId = selectedTypeId;
+        if (selectedTypeId === '__other__') {
+            const newTypeId = 'dt_' + Date.now();
+            const existingTypes = getMockDroneTypes();
+            const newType = {
+                id: newTypeId,
+                name: customTypeName.trim(),
+                description: 'Custom drone type added during drone registration',
+                manufacturer: 'SuperBee Custom',
+                status: 'ready_to_fly' as const
+            };
+            localStorage.setItem('mockDroneTypes', JSON.stringify([...existingTypes, newType]));
+            finalTypeId = newTypeId;
+        }
+
         const existing = getMockDrones();
         const newDrone = {
             id: 'drone_' + Date.now(),
-            drone_type_id: selectedTypeId,
+            drone_type_id: finalTypeId,
             drone_number: form.drone_number.trim(),
             uin_number: form.uin_number.trim(),
             location: form.location.trim(),

@@ -40,6 +40,8 @@ export const authAPI = {
     api.post('/auth/login', { email, password }),
   getProfile: () => api.get('/auth/profile'),
   logout: () => api.post('/auth/logout'),
+  changePassword: (oldPassword: string, newPassword: string) =>
+    api.post('/auth/change-password', { oldPassword, newPassword }),
 };
 
 export const inventoryAPI = {
@@ -53,6 +55,8 @@ export const inventoryAPI = {
 export const categoriesAPI = {
   getAll: () => api.get('/categories'),
   create: (data: any) => api.post('/categories', data),
+  update: (id: string, data: any) => api.put(`/categories/${id}`, data),
+  delete: (id: string) => api.delete(`/categories/${id}`),
 };
 
 export const usersAPI = {
@@ -67,6 +71,7 @@ export const aeRequestsAPI = {
   create: (data: any) => api.post('/ae-requests', data),
   accept: (id: string) => api.post(`/ae-requests/${id}/accept`),
   reject: (id: string) => api.post(`/ae-requests/${id}/reject`),
+  withdraw: (id: string) => api.post(`/ae-requests/${id}/withdraw`),
 };
 
 export const dashboardAPI = {

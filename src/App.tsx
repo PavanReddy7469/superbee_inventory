@@ -14,7 +14,6 @@ import BuyersPage from './pages/BuyersPage';
 import CartPage from './pages/CartPage';
 import AeRequestsPage from './pages/AeRequestsPage';
 import PiRequestPage from './pages/PiRequestPage';
-import PoRequestPage from './pages/PoRequestPage';
 import DronesPage from './pages/DronesPage';
 import DroneTypesPage from './pages/DroneTypesPage';
 import AddDronePage from './pages/AddDronePage';
@@ -126,16 +125,6 @@ function App() {
               }
             />
 
-            <Route
-              path="/dashboard/po-request"
-              element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
-                  <DashboardLayout>
-                    <PoRequestPage />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
 
             <Route
               path="/dashboard/pi-request"

@@ -147,11 +147,19 @@ export default function GenerateInvoicePage() {
       doc.setFontSize(7.5);
       doc.setFont('helvetica', 'normal');
       doc.text('Supplier of Drone Components /Simulators /Sensors. C/o Centurion', 20, 23);
-      doc.text('University of Technology and Management Survey NO: 157-1 TO 6,', 20, 27);
-      doc.text('Tekkali Village, Nellimarla, 535 003, Andhra Pradesh 535003', 20, 31);
-      doc.text('GSTIN: 21AAKCS0752B1Z8', 20, 35);
-      doc.setTextColor(0, 0, 255);
-      doc.text('State: 36-Telangana', 20, 39);
+      if (location === 'Bhubaneswar') {
+        doc.text('University of Technology and Management Survey No. 10 + 10 &', 20, 27);
+        doc.text('Techno Village, Jatni, Khurda, Bhubaneswar, Odisha 752050', 20, 31);
+        doc.text('GSTIN: 21AAKCS0752B1Z8', 20, 35);
+        doc.setTextColor(0, 0, 255);
+        doc.text('State: 21-Odisha', 20, 39);
+      } else {
+        doc.text('University of Technology and Management Survey NO: 157-1 TO 6,', 20, 27);
+        doc.text('Tekkali Village, Nellimarla, 535 003, Andhra Pradesh 535003', 20, 31);
+        doc.text('GSTIN: 21AAKCS0752B1Z8', 20, 35);
+        doc.setTextColor(0, 0, 255);
+        doc.text('State: 36-Telangana', 20, 39);
+      }
       doc.setTextColor(0, 0, 0);
 
       // Horizontal line after header
@@ -211,14 +219,17 @@ export default function GenerateInvoicePage() {
           item.description,
           item.quantity,
           `₹ ${item.unitPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          `₹ ${subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
           `₹ ${gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n(${item.gst}%)`,
           `₹ ${calculateItemTotal(item).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
         ];
       });
 
       // Add Total row
+      const subtotalSum = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
       tableData.push([
         { content: 'Total', colSpan: 4, styles: { fontStyle: 'bold', halign: 'right' } },
+        `₹ ${subtotalSum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
         `₹ ${totals.gstTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
         `₹ ${totals.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
       ]);
@@ -609,8 +620,6 @@ export default function GenerateInvoicePage() {
         </select>
       </div>
 
-      {location === 'Andhra Pradesh' ? (
-        <>
           {/* Invoice Form */}
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">Invoice Details</h2>
@@ -880,12 +889,6 @@ export default function GenerateInvoicePage() {
               </div>
             )}
           </div>
-        </>
-      ) : (
-        <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-          <p className="text-xl text-slate-600">Bhubaneswar invoice form coming soon...</p>
-        </div>
-      )}
     </div>
   );
 }

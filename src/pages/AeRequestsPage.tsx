@@ -19,14 +19,15 @@ interface Stats {
   pending: number;
   approved: number;
   rejected: number;
+  withdrawn: number;
 }
 
 export default function AeRequestsPage() {
   const [requests, setRequests] = useState<AeRequest[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<AeRequest[]>([]);
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
-  const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, approved: 0, rejected: 0 });
+  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'withdrawn'>('pending');
+  const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, approved: 0, rejected: 0, withdrawn: 0 });
 
   useEffect(() => {
     fetchRequests();
@@ -47,7 +48,8 @@ export default function AeRequestsPage() {
         total: requestsData.length,
         pending: requestsData.filter((r: AeRequest) => r.status === 'pending').length,
         approved: requestsData.filter((r: AeRequest) => r.status === 'approved').length,
-        rejected: requestsData.filter((r: AeRequest) => r.status === 'rejected').length
+        rejected: requestsData.filter((r: AeRequest) => r.status === 'rejected').length,
+        withdrawn: requestsData.filter((r: AeRequest) => r.status === 'withdrawn').length
       };
       setStats(newStats);
     } catch (err) {
@@ -89,7 +91,7 @@ export default function AeRequestsPage() {
       }
 
       await fetchRequests();
-      alert('✅ Request approved!\n✓ Inventory updated\n✓ Email notification sent');
+      alert('✅ Request approved!\n✓ Inventory updated\nℹ️ Email notification logged (mocked)');
     } catch (err) {
       console.error('Error accepting request:', err);
       alert('❌ Failed to accept request. Please try again.');
@@ -113,7 +115,7 @@ export default function AeRequestsPage() {
       }
 
       await fetchRequests();
-      alert('❌ Request rejected!\n✓ Email notification sent');
+      alert('❌ Request rejected!\nℹ️ Email notification logged (mocked)');
     } catch (err) {
       console.error('Error rejecting request:', err);
       alert('❌ Failed to reject request. Please try again.');
@@ -206,6 +208,15 @@ export default function AeRequestsPage() {
             Rejected ({stats.rejected})
           </button>
           <button
+            onClick={() => setFilter('withdrawn')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'withdrawn'
+                ? 'bg-slate-200 text-slate-800'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+          >
+            Withdrawn ({stats.withdrawn})
+          </button>
+          <button
             onClick={() => setFilter('all')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'all'
                 ? 'bg-blue-100 text-blue-700'
@@ -232,7 +243,9 @@ export default function AeRequestsPage() {
                   ? 'No approved requests yet.'
                   : filter === 'rejected'
                     ? 'No rejected requests yet.'
-                    : 'No requests have been raised yet.'}
+                    : filter === 'withdrawn'
+                      ? 'No withdrawn requests yet.'
+                      : 'No requests have been raised yet.'}
             </p>
           </div>
         ) : (
@@ -278,11 +291,14 @@ export default function AeRequestsPage() {
                             ? 'bg-green-100 text-green-800'
                             : req.status === 'rejected'
                               ? 'bg-red-100 text-red-800'
-                              : 'bg-amber-100 text-amber-800'
+                              : req.status === 'withdrawn'
+                                ? 'bg-slate-100 text-slate-800'
+                                : 'bg-amber-100 text-amber-800'
                           }`}
                       >
                         {req.status === 'approved' && <CheckCircle className="h-3 w-3 mr-1" />}
                         {req.status === 'rejected' && <XCircle className="h-3 w-3 mr-1" />}
+                        {req.status === 'withdrawn' && <XCircle className="h-3 w-3 mr-1 text-slate-500" />}
                         {req.status === 'pending' && <Clock className="h-3 w-3 mr-1" />}
                         {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
                       </span>

@@ -7,5 +7,7 @@ router.use(authenticateToken);
 
 router.get('/', categoriesController.getAllCategories);
 router.post('/', authorizeRoles('admin', 'superadmin'), categoriesController.createCategory);
+router.put('/:id', authorizeRoles('admin', 'superadmin'), categoriesController.updateCategory);
+router.delete('/:id', authorizeRoles('admin', 'superadmin'), categoriesController.deleteCategory);
 
 module.exports = router;

@@ -83,7 +83,7 @@ exports.createPart = async (req, res) => {
 exports.updatePart = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, manufacturer, serial_number, quantity, price, status } = req.body;
+    const { name, category_id, manufacturer, serial_number, quantity, price, status } = req.body;
 
     // Check if part exists
     const [existing] = await db.query('SELECT id FROM inventory_parts WHERE id = ?', [id]);
@@ -93,9 +93,9 @@ exports.updatePart = async (req, res) => {
 
     await db.query(`
       UPDATE inventory_parts 
-      SET name = ?, manufacturer = ?, serial_number = ?, quantity = ?, price = ?, status = ?
+      SET name = ?, category_id = ?, manufacturer = ?, serial_number = ?, quantity = ?, price = ?, status = ?
       WHERE id = ?
-    `, [name, manufacturer, serial_number, quantity, price, status, id]);
+    `, [name, category_id, manufacturer, serial_number, quantity, price, status, id]);
 
     // Fetch updated part
     const [parts] = await db.query(`

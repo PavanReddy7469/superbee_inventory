@@ -12,7 +12,8 @@ import {
   ChevronRight,
   LogOut,
   ShoppingCart,
-  User
+  User,
+  Key
 } from 'lucide-react';
 import logo from '../assets/superbee.png';
 
@@ -27,8 +28,14 @@ interface MenuItem {
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<string[]>(['inventory']);
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, changePassword } = useAuth();
   const { items } = useCart();
+  
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,6 +46,32 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);
+    }
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      alert('❌ New passwords do not match');
+      return;
+    }
+    if (newPassword.length < 6) {
+      alert('❌ Password must be at least 6 characters long');
+      return;
+    }
+    setPasswordLoading(true);
+    try {
+      await changePassword(oldPassword, newPassword);
+      alert('✅ Password changed successfully!');
+      setShowPasswordModal(false);
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      console.error('Password change error:', error);
+      alert(error.response?.data?.error || 'Failed to change password. Please verify current password.');
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -155,6 +188,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           path: '/dashboard/generate-ao',
           icon: <Package className="h-5 w-5" />,
           roles: ['superadmin', 'admin']
+        },
+        {
+          label: 'PI Requests History',
+          path: '/dashboard/pi-request',
+          icon: <Package className="h-5 w-5" />,
+          roles: ['superadmin', 'admin']
         }
       ]
     }
@@ -264,6 +303,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               <div className="text-xs text-cyan-600 mt-1 capitalize">{profile?.role?.name}</div>
             </div>
             <button
+              onClick={() => setShowPasswordModal(true)}
+              className="w-full flex items-center space-x-2 px-4 py-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors mb-1.5"
+            >
+              <Key className="h-4 w-4 text-slate-500" />
+              <span className="text-sm font-medium">Change Password</span>
+            </button>
+            <button
               onClick={handleSignOut}
               className="w-full flex items-center space-x-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
             >
@@ -328,6 +374,99 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
         </footer>
       </div>
+      
+      {/* Change Password Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-md shadow-xl overflow-hidden text-left">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <div className="bg-indigo-50 p-2 rounded-lg">
+                  <Key className="h-5 w-5 text-indigo-600" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">Change Password</h3>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setOldPassword('');
+                  setNewPassword('');
+                  setConfirmPassword('');
+                }}
+                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handlePasswordSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+                  Current Password *
+                </label>
+                <input
+                  type="password"
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 animate-none"
+                  placeholder="Enter current password"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+                  New Password *
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 animate-none"
+                  placeholder="Enter new password (min 6 chars)"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+                  Confirm New Password *
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 animate-none"
+                  placeholder="Confirm new password"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPasswordModal(false);
+                    setOldPassword('');
+                    setNewPassword('');
+                    setConfirmPassword('');
+                  }}
+                  className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-lg text-sm font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={passwordLoading}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
+                >
+                  {passwordLoading ? 'Saving...' : 'Update Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

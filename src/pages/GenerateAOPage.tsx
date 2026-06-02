@@ -118,10 +118,17 @@ export default function GenerateAOPage() {
     doc.text('SUPERBEE AERONAUTICS PVT. LTD', 20, 20);
     doc.setFontSize(8);
     doc.text('Supplier of Drone Components / Simulators / Sensors', 20, 25);
-    doc.text('L2a Centurion University of Technology and Management Survey No. 10 + 10 & ', 20, 29);
-    doc.text('Techno Village, Malkangiri, 535 001, Andhra Pradesh 535001', 20, 33);
-    doc.text('GSTIN: 21AACCU0792B1Z8', 20, 37);
-    doc.text('State: 36-Telangana', 20, 41);
+    if (location === 'Bhubaneswar') {
+      doc.text('C/o Centurion University of Technology and Management,', 20, 29);
+      doc.text('Techno Village, Jatni, Khurda, Bhubaneswar, Odisha 752050', 20, 33);
+      doc.text('GSTIN: 21AACCU0792B1Z8', 20, 37);
+      doc.text('State: 21-Odisha', 20, 41);
+    } else {
+      doc.text('L2a Centurion University of Technology and Management Survey No. 10 + 10 & ', 20, 29);
+      doc.text('Techno Village, Malkangiri, 535 001, Andhra Pradesh 535001', 20, 33);
+      doc.text('GSTIN: 21AACCU0792B1Z8', 20, 37);
+      doc.text('State: 36-Telangana', 20, 41);
+    }
 
     // Add logo placeholder
     // doc.setFontSize(12);
@@ -363,9 +370,6 @@ export default function GenerateAOPage() {
           <option value="Bhubaneswar">Bhubaneswar</option>
         </select>
       </div>
-
-      {location === 'Andhra Pradesh' ? (
-        <>
           {/* AO Form */}
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">AO Details</h2>
@@ -635,12 +639,6 @@ export default function GenerateAOPage() {
               </div>
             )}
           </div>
-        </>
-      ) : (
-        <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-          <p className="text-xl text-slate-600">Bhubaneswar AO form coming soon...</p>
-        </div>
-      )}
     </div>
   );
 }
