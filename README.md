@@ -30,18 +30,12 @@ A complete inventory management system for SuperBee Aeronautics with MySQL backe
 
 ---
 
-## 🚀 For IT Department / Deployment Team
+## 🚀 Local & Server Deployment
 
-**👉 READ THIS FIRST:** `DEPLOYMENT_INSTRUCTIONS.md`
+This repository is ready for local running and hosting on your organization's servers.
 
-This document contains:
-- Complete deployment steps
-- Server requirements
-- Database setup instructions
-- Nginx configuration
-- SSL setup
-- Security checklist
-- Troubleshooting guide
+- **Local Preview**: Fully configured to connect to your local MySQL database.
+- **Server Deployment**: Ready for deployment on your private servers (such as Nginx proxying to the Node.js backend).
 
 ---
 
@@ -296,15 +290,12 @@ curl -X POST http://localhost:5000/api/auth/login \
 
 ## 📊 Production Deployment
 
-**For production deployment, refer to:** `DEPLOYMENT_INSTRUCTIONS.md`
-
-This includes:
-- Server requirements
-- Complete deployment steps
-- Nginx configuration
-- SSL setup
-- Security checklist
-- Monitoring setup
+To run this application in a production environment:
+1. Ensure your local MySQL database has the schema loaded from `backend-setup/database-schema.sql`.
+2. Populate the default users by running `node scripts/init-users.js` inside the `backend` folder.
+3. Configure `backend/.env` with your secure database passwords, port, and correct CORS domain.
+4. Run `npm run build` at the root of the project to create the production frontend bundle in the `dist` directory.
+5. Serve the frontend using a web server (like Nginx) and keep the backend Node server active using a process manager like `pm2`.
 
 ---
 
@@ -332,11 +323,10 @@ mysqldump -u superbee_user -p superbee_inventory > backup_$(date +%Y%m%d).sql
 
 ## 📞 Support
 
-### For Deployment Issues
-- Check `DEPLOYMENT_INSTRUCTIONS.md`
-- Review server logs
-- Verify all configuration files
-- Check firewall settings
+### For Deployment/Running Issues
+- Review backend node process logs
+- Verify database configuration in `backend/.env`
+- Check firewall settings and port 5000 access
 
 ### For Development Issues
 - Check browser console (F12)
@@ -397,4 +387,4 @@ pm2 save
 
 ---
 
-**For deployment by IT department, please refer to `DEPLOYMENT_INSTRUCTIONS.md`**
+**Deploy ready on your private organization servers!**
