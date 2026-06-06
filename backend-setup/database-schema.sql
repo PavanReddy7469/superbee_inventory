@@ -230,12 +230,10 @@ LEFT JOIN roles r ON u.role_id = r.id;
 CREATE VIEW v_ae_requests_detailed AS
 SELECT 
   ar.*,
-  u1.name AS requester_name,
-  u1.email AS requester_email,
-  u2.name AS reviewer_name
-FROM ae_requests ar
-LEFT JOIN users u1 ON ar.requested_by = u1.id
-LEFT JOIN users u2 ON ar.reviewed_by = u2.id;
+  ar.requested_by AS requester_name,
+  ar.email AS requester_email,
+  NULL AS reviewer_name
+FROM ae_requests ar;
 
 -- ============================================
 -- STORED PROCEDURES (Optional)
@@ -257,14 +255,11 @@ END //
 
 -- Procedure: Approve AE Request
 CREATE PROCEDURE sp_approve_ae_request(
-  IN p_request_id VARCHAR(36),
-  IN p_reviewer_id VARCHAR(36)
+  IN p_request_id VARCHAR(36)
 )
 BEGIN
   UPDATE ae_requests 
   SET status = 'approved',
-      reviewed_by = p_reviewer_id,
-      reviewed_at = CURRENT_TIMESTAMP,
       updated_at = CURRENT_TIMESTAMP
   WHERE id = p_request_id;
 END //

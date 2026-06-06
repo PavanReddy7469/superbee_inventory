@@ -32,29 +32,7 @@ echo "🗄️  Database Setup"
 echo "Would you like to import the database schema into MySQL now? (y/n)"
 read -r response
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-  echo "Enter MySQL Host (default: localhost):"
-  read -r db_host
-  db_host=${db_host:-localhost}
-
-  echo "Enter MySQL Port (default: 3306):"
-  read -r db_port
-  db_port=${db_port:-3306}
-
-  echo "Enter MySQL Username (default: root):"
-  read -r db_user
-  db_user=${db_user:-root}
-
-  echo "Importing schema (you will be prompted for your MySQL password)..."
-  mysql -h "$db_host" -P "$db_port" -u "$db_user" -p < backend-setup/database-schema.sql
-  
-  echo "✅ Database schema imported successfully!"
-  
-  # Initialize users
-  echo "🔑 Initializing default users..."
-  cd backend
-  node scripts/init-users.js
-  cd ..
-  echo "✅ Default users initialized successfully!"
+  node backend/scripts/setup-db.js
 else
   echo "⏭️  Skipping database setup. Remember to load 'backend-setup/database-schema.sql' manually."
 fi
