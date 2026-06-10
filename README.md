@@ -1,73 +1,129 @@
-# SuperBee Aeronautics - Inventory Management System
+# SuperBee Aeronautics — Inventory Management System (SBA-IMS)
 
-**Version:** 1.0.0  
-**Status:** ✅ Production Ready  
-**Date:** May 14, 2026
+**Version:** 1.3  
+**Status:** ✅ Production Ready (Security Hardened)  
+**Last Updated:** June 10, 2026
 
-A complete inventory management system for SuperBee Aeronautics with MySQL backend and React frontend.
+A secure, full-stack inventory management system for SuperBee Aeronautics with role-based access control, procurement workflows, and comprehensive audit logging.
 
 ---
 
 ## 📋 System Overview
 
 ### Technology Stack
-- **Frontend:** React 18 + TypeScript + Vite
-- **Backend:** Node.js + Express.js
-- **Database:** MySQL 8.0
-- **Authentication:** JWT (JSON Web Tokens)
-- **Styling:** Tailwind CSS
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18 + TypeScript + Vite |
+| Backend | Node.js 22+ + Express.js |
+| Database | MySQL 8.0 |
+| Authentication | JWT (HttpOnly Secure Cookies) |
+| Styling | Tailwind CSS |
 
 ### Features
-- ✅ User Authentication & Authorization
-- ✅ Inventory Management (CRUD operations)
-- ✅ Category Management
-- ✅ User Management (Admin only)
-- ✅ Assembly Engineer Request Workflow
-- ✅ Dashboard with Real-time Statistics
-- ✅ Cart System for Part Requests
-- ✅ Automatic Inventory Decrement on Approval
-- ✅ Role-based Access Control
+
+- ✅ Secure JWT authentication (HttpOnly cookies, no localStorage)
+- ✅ Role-based access control (Superadmin → Admin → Technician)
+- ✅ Forced password change on first login
+- ✅ Inventory management (CRUD with soft delete)
+- ✅ Category management
+- ✅ User management (Admin / Superadmin only)
+- ✅ Assembly Engineer procurement request workflow
+- ✅ Cart system for part requests
+- ✅ Automatic inventory decrement on approval
+- ✅ Dashboard with real-time statistics
+- ✅ Comprehensive audit logging
+- ✅ API versioning (`/api/v1/`)
+- ✅ CSRF protection
+- ✅ Rate limiting (brute-force protection)
+- ✅ Input validation on all endpoints
 
 ---
 
-## 🚀 Local & Server Deployment
-
-This repository is ready for local running and hosting on your organization's servers.
-
-- **Local Preview**: Fully configured to connect to your local MySQL database.
-- **Server Deployment**: Ready for deployment on your private servers (such as Nginx proxying to the Node.js backend).
-
----
-
-## 🏠 For Local Development
+## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js v18 or higher
-- MySQL 8.0
-- npm or yarn
 
-### Quick Start
+- **Node.js** v22 or higher
+- **MySQL** 8.0
+- **npm** (comes with Node.js)
 
-#### 1. Start Backend Server
+### Automated Setup
+
 ```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+The setup script will:
+1. Install frontend and backend dependencies
+2. Generate secure JWT and session secrets
+3. Create `.env` files from templates
+4. Set up the database (schema, migrations, initial users)
+5. Optionally build the production frontend
+
+### Manual Setup
+
+#### 1. Install Dependencies
+
+```bash
+# Frontend
+npm install
+
+# Backend
 cd backend
 npm install
-npm run dev
+cd ..
 ```
-Backend runs on: **http://localhost:5000**
 
-#### 2. Start Frontend Server
+#### 2. Configure Environment
+
 ```bash
-npm install
-npm run dev
+# Backend — copy template and edit
+cp backend/.env.example backend/.env
+# Edit backend/.env with your database credentials
+
+# Frontend — copy template and edit
+cp .env.production .env
+# Edit .env with your API URL
 ```
-Frontend runs on: **http://localhost:5173**
 
-#### 3. Login Credentials
-- **Admin:** ram@superbee.com / 123456
-- **Technician:** ae@superbee.com / 123456
+#### 3. Set Up Database
 
-**⚠️ IMPORTANT:** Change these passwords after deployment!
+```bash
+# Option A: Automated
+cd backend
+node scripts/setup-db.js
+node scripts/migrate-db-phase4.js
+node scripts/init-users.js
+
+# Option B: Manual SQL
+mysql -u root -p < backend-setup/database-schema.sql
+cd backend && node scripts/migrate-db-phase4.js
+cd backend && node scripts/init-users.js
+```
+
+#### 4. Start Development Servers
+
+```bash
+# Terminal 1 — Backend
+cd backend
+npm run dev
+# → http://localhost:5000
+
+# Terminal 2 — Frontend
+npm run dev
+# → http://localhost:5173
+```
+
+#### 5. First Login
+
+After running `init-users.js`, initial credentials are saved to:
+```
+backend/.setup-credentials.txt
+```
+
+> **⚠️ IMPORTANT:** All default passwords are randomly generated. Users are **forced to change their password** on first login. Delete `.setup-credentials.txt` after noting the initial passwords.
 
 ---
 
@@ -75,33 +131,65 @@ Frontend runs on: **http://localhost:5173**
 
 ```
 project/
-├── backend/                    # Backend API
-│   ├── config/                # Database configuration
-│   ├── controllers/           # API controllers
-│   ├── middleware/            # Authentication middleware
-│   ├── routes/                # API routes
-│   ├── scripts/               # Database scripts
-│   │   ├── init-users.js     # Initialize default users
-│   │   └── update-ae-requests.js
-│   ├── .env                   # Environment variables (create this)
-│   ├── package.json           # Backend dependencies
-│   └── server.js              # Main server file
+├── backend/                        # Express.js API server
+│   ├── config/
+│   │   └── database.js            # MySQL connection pool (TLS in production)
+│   ├── controllers/               # Route handlers
+│   │   ├── authController.js      # Login, logout, password change
+│   │   ├── usersController.js     # User CRUD with pagination
+│   │   ├── inventoryController.js # Parts CRUD with soft delete
+│   │   ├── aeRequestsController.js# Procurement request workflow
+│   │   ├── categoriesController.js# Category management
+│   │   └── dashboardController.js # Stats & analytics
+│   ├── middleware/
+│   │   ├── auth.js                # JWT verification & role authorization
+│   │   ├── auditLog.js            # Action audit trail
+│   │   ├── rateLimiter.js         # Brute-force protection
+│   │   └── validate.js            # Input validation runner
+│   ├── routes/                    # Express route definitions
+│   ├── scripts/
+│   │   ├── setup-db.js            # Database schema loader
+│   │   ├── migrate-db-phase4.js   # Constraints & triggers migration
+│   │   ├── init-users.js          # Initial user creation
+│   │   └── verify-security.js     # Security test suite (18 tests)
+│   ├── utils/
+│   │   └── passwordPolicy.js      # Password complexity validator
+│   ├── .env.example               # Environment variable template
+│   ├── BACKUP_STRATEGY.md         # Backup & secrets rotation guide
+│   ├── package.json
+│   └── server.js                  # Main server entry point
 │
-├── backend-setup/             # Database setup
-│   └── database-schema.sql    # Complete database schema
+├── backend-setup/
+│   ├── database-schema.sql        # Complete MySQL schema (14 tables)
+│   └── .env.example               # Deployment env template
 │
-├── src/                       # Frontend application
-│   ├── components/            # Reusable components
-│   ├── contexts/              # React contexts (Auth, Cart)
-│   ├── lib/                   # API client & utilities
-│   ├── pages/                 # Application pages
-│   └── utils/                 # Utility functions
+├── src/                           # React frontend
+│   ├── components/
+│   │   └── PrivateRoute.tsx       # Route guard (auth + role + forced pw change)
+│   ├── contexts/
+│   │   ├── AuthContext.tsx         # Session management & restore
+│   │   └── CartContext.tsx         # Shopping cart state
+│   ├── lib/
+│   │   └── api.ts                 # Axios client with CSRF interceptor
+│   ├── pages/
+│   │   ├── LoginPage.tsx          # Login with rate-limit countdown
+│   │   ├── ChangePasswordPage.tsx # Forced password reset with strength meter
+│   │   ├── DashboardPage.tsx      # Admin dashboard
+│   │   ├── InventoryPage.tsx      # Parts management
+│   │   ├── AeRequestsPage.tsx     # Procurement approval workflow
+│   │   ├── BuyersPage.tsx         # User management
+│   │   └── UnauthorizedPage.tsx   # Access denied page
+│   └── env.example                # Frontend env template
 │
-├── .env                       # Frontend environment variables
-├── package.json               # Frontend dependencies
-├── vite.config.ts             # Vite configuration
-├── tailwind.config.js         # Tailwind CSS configuration
-└── index.html                 # Entry point
+├── public/
+│   └── .well-known/
+│       └── security.txt           # Security contact (RFC 9116)
+│
+├── .env.production                # Frontend production env template
+├── setup.sh                       # Automated setup script
+├── package.json
+├── vite.config.ts
+└── index.html
 ```
 
 ---
@@ -111,280 +199,369 @@ project/
 ### Database Name
 `superbee_inventory`
 
-### Tables (14)
-- users
-- roles
-- categories
-- inventory_parts
-- drone_types
-- drones
-- ae_requests
-- invoices
-- acceptance_orders
-- refresh_tokens
-- inventory_audit_log
-- part_invoices
-- buyers
-- po_requests
+### Tables (14+)
 
-### Setup Database
-```bash
-# Create database and user
-mysql -u root -p
+| Table | Purpose |
+|-------|---------|
+| `users` | User accounts with soft delete |
+| `roles` | Role definitions (superadmin, admin, technician) |
+| `categories` | Part categories |
+| `inventory_parts` | Parts inventory with quantity/price constraints |
+| `drone_types` | Drone type classifications |
+| `drones` | Individual drone records |
+| `ae_requests` | Procurement requests with status workflow |
+| `invoices` | Purchase invoices |
+| `acceptance_orders` | Order acceptance records |
+| `refresh_tokens` | Token management |
+| `inventory_audit_log` | Inventory change history |
+| `part_invoices` | Part-invoice associations |
+| `buyers` | Buyer records |
+| `po_requests` | Purchase order requests |
+| `audit_logs` | Security action audit trail |
+| `login_attempts` | Rate limiting tracker |
 
-CREATE DATABASE superbee_inventory;
-CREATE USER 'superbee_user'@'localhost' IDENTIFIED BY 'your_password';
-GRANT ALL PRIVILEGES ON superbee_inventory.* TO 'superbee_user'@'localhost';
+### Database Constraints & Triggers
+
+- **CHECK constraints**: `quantity >= 0`, `price > 0`, valid status values
+- **Trigger**: `prevent_last_superadmin_delete` — blocks deletion of the last superadmin account
+- **Soft delete**: `is_deleted` + `deleted_at` fields on users, parts, categories
+
+### Least-Privilege Database Users
+
+```sql
+-- Application user (read-write, no admin privileges)
+CREATE USER 'sba_app'@'localhost' IDENTIFIED BY 'STRONG_PASSWORD_HERE';
+GRANT SELECT, INSERT, UPDATE, DELETE ON superbee_inventory.* TO 'sba_app'@'localhost';
+
+-- Read-only user (for reporting/analytics)
+CREATE USER 'sba_readonly'@'localhost' IDENTIFIED BY 'ANOTHER_STRONG_PASSWORD';
+GRANT SELECT ON superbee_inventory.* TO 'sba_readonly'@'localhost';
+
 FLUSH PRIVILEGES;
-EXIT;
-
-# Load schema
-mysql -u superbee_user -p superbee_inventory < backend-setup/database-schema.sql
-
-# Initialize users
-cd backend
-node scripts/init-users.js
 ```
 
 ---
 
 ## 🔧 Configuration
 
-### Backend Environment Variables
-Create `backend/.env`:
+### Backend Environment Variables (`backend/.env`)
+
 ```env
+# Server
+NODE_ENV=production
 PORT=5000
-NODE_ENV=development
+
+# Authentication
+JWT_SECRET=<auto-generated-64-char-hex>    # Generate: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+JWT_EXPIRES_IN=24h
+SESSION_SECRET=<auto-generated-32-char-hex>
+
+# Database
 DB_HOST=localhost
 DB_PORT=3306
-DB_USER=superbee_user
-DB_PASSWORD=your_password
+DB_USER=sba_app                            # NOT root — use least-privilege user
+DB_PASSWORD=<strong-password>
 DB_NAME=superbee_inventory
-JWT_SECRET=zk4FNDs8fBAZEgx90pvdr5wl6G2PhJUmcoQubOTMYt7iSe1VjHnqIWXCaRK3Ly
-JWT_EXPIRES_IN=24h
-CORS_ORIGIN=http://localhost:5173
+DB_CA_CERT=path/to/ca.pem                  # For TLS database connections
+
+# CORS
+CORS_ORIGIN=https://your-domain.com
+FRONTEND_URL=https://your-domain.com
+
+# Cookies
+COOKIE_DOMAIN=your-domain.com
+HTTPS_ONLY=true
+
+# Logging
+LOG_LEVEL=warn
 ```
 
-### Frontend Environment Variables
-Create `.env` in root:
+### Frontend Environment Variables (`.env`)
+
 ```env
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=https://your-domain.com/api
 ```
+
+> **⚠️ SECURITY:** Never commit `.env` files with real credentials. Only `.env.example` and `.env.production` (templates) are tracked in git.
 
 ---
 
 ## 🔑 API Endpoints
 
+All endpoints are prefixed with `/api/v1/`. Legacy `/api/` paths redirect via HTTP 307.
+
 ### Authentication
-- `POST /api/auth/login` - User login
-- `GET /api/auth/profile` - Get user profile
-- `POST /api/auth/logout` - Logout
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `POST` | `/api/v1/auth/login` | User login | Public |
+| `POST` | `/api/v1/auth/logout` | Logout | Required |
+| `GET` | `/api/v1/auth/me` | Get current session | Required |
+| `POST` | `/api/v1/auth/change-password` | Change password | Required |
+| `GET` | `/api/v1/auth/csrf-token` | Get CSRF token | Public |
 
 ### Inventory
-- `GET /api/inventory` - Get all parts
-- `POST /api/inventory` - Create part
-- `PUT /api/inventory/:id` - Update part
-- `DELETE /api/inventory/:id` - Delete part
 
-### Categories
-- `GET /api/categories` - Get all categories
-- `POST /api/categories` - Create category
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/v1/inventory` | List parts (paginated) | Required |
+| `POST` | `/api/v1/inventory` | Create part | Admin+ |
+| `PUT` | `/api/v1/inventory/:id` | Update part | Admin+ |
+| `DELETE` | `/api/v1/inventory/:id` | Soft-delete part | Admin+ |
 
-### Users (Admin only)
-- `GET /api/users` - Get all users
-- `POST /api/users` - Create user
-- `PATCH /api/users/:id/status` - Update user status
-- `DELETE /api/users/:id` - Delete user
+### Users (Admin / Superadmin)
 
-### AE Requests
-- `GET /api/ae-requests` - Get all requests
-- `POST /api/ae-requests` - Create request
-- `POST /api/ae-requests/:id/accept` - Accept request
-- `POST /api/ae-requests/:id/reject` - Reject request
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/v1/users` | List users (paginated) | Admin+ |
+| `POST` | `/api/v1/users` | Create user | Admin+ |
+| `PATCH` | `/api/v1/users/:id/status` | Activate/deactivate | Admin+ |
+| `DELETE` | `/api/v1/users/:id` | Soft-delete user | Admin+ |
 
-### Dashboard
-- `GET /api/dashboard/stats` - Get statistics
-- `GET /api/dashboard/products` - Get products by category
+### Procurement Requests
 
-**Total:** 28 API endpoints
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/v1/ae-requests` | List requests (paginated) | Required |
+| `POST` | `/api/v1/ae-requests` | Submit request | Technician |
+| `POST` | `/api/v1/ae-requests/:id/accept` | Approve request | Admin+ |
+| `POST` | `/api/v1/ae-requests/:id/reject` | Reject request | Admin+ |
+
+### Categories & Dashboard
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/v1/categories` | List categories | Required |
+| `POST` | `/api/v1/categories` | Create category | Admin+ |
+| `GET` | `/api/v1/dashboard/stats` | Dashboard statistics | Admin+ |
+| `GET` | `/api/v1/dashboard/products` | Products by category | Admin+ |
 
 ---
 
 ## 👥 User Roles
 
-### 1. Superadmin / Admin
-- Full system access
-- Manage inventory
-- Manage users
-- Approve/reject requests
-- View all statistics
-
-### 2. Technician (Assembly Engineer)
-- View inventory
-- Submit part requests
-- View own requests
-- Track request status
+| Role | Level | Permissions |
+|------|-------|-------------|
+| **Superadmin** | 3 | Full system access, manage all users including admins |
+| **Admin** | 2 | Manage inventory, users (except superadmin), approve/reject requests |
+| **Technician** | 1 | View inventory, submit procurement requests, track own requests |
 
 ---
 
-## 🔒 Security Features
+## 🔒 Security Architecture
 
-- ✅ JWT-based authentication
-- ✅ Bcrypt password hashing
-- ✅ Protected API routes
-- ✅ SQL injection prevention (parameterized queries)
-- ✅ CORS configuration
-- ✅ Input validation
-- ✅ Token expiration handling
-- ✅ Role-based access control
+### Authentication & Session Management
+- JWT tokens stored in **HttpOnly, Secure, SameSite=Strict** cookies
+- Forced password change on first login (`must_change_password` flag)
+- Session restore via `/auth/me` on page reload
+- 24-hour token expiry
+
+### Access Control
+- Role-based middleware (`authorizeRoles()`) on all protected routes
+- Frontend route guards (`PrivateRoute` component)
+- Privilege escalation prevention (non-superadmin cannot create superadmin)
+- Last-superadmin deletion protection (MySQL trigger)
+
+### Input & Request Security
+- **CSRF protection** via `csurf` middleware with `X-CSRF-Token` headers
+- **Input validation** via `express-validator` on all POST/PUT/PATCH endpoints
+- **Rate limiting**: 5 login attempts per 15 minutes (with frontend countdown)
+- **Request size limits**: 1MB max payload
+- **Notes field**: 5,000 character limit
+
+### Infrastructure Security
+- **Security headers**: Helmet with CSP, HSTS (1 year + preload), X-Frame-Options: DENY
+- **CORS**: Strict origin whitelist (no regex)
+- **Database**: SSL/TLS enforced in production, parameterized queries
+- **Error masking**: Generic error messages in production (no stack traces)
+- **HTTPS redirection**: Automatic HTTP → HTTPS in production
+
+### Data Protection
+- **Bcrypt hashing**: 12 salt rounds
+- **Password policy**: Min 8 chars, uppercase, lowercase, digit, special character
+- **Soft delete**: All entities use `is_deleted` flag (recoverable)
+- **Audit logging**: All security-sensitive actions logged to `audit_logs` table
+- **Dependency pinning**: Exact versions locked (no caret/tilde ranges)
+
+### Compliance
+- `/.well-known/security.txt` — security contact disclosure (RFC 9116)
+- `BACKUP_STRATEGY.md` — backup procedures and secrets rotation policy
 
 ---
 
 ## 🧪 Testing
 
-### Test Backend API
-```bash
-# Health check
-curl http://localhost:5000/health
+### Security Verification Suite
 
-# Login
-curl -X POST http://localhost:5000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"ram@superbee.com","password":"123456"}'
+Run the automated 18-test security verification:
+
+```bash
+cd backend
+node scripts/verify-security.js
 ```
 
-### Test Frontend
+This validates: CSRF enforcement, CORS blocking, input validation, security headers, audit logging, TLS configuration, payload limits, API versioning, pagination, soft deletion, DB constraints, superadmin protection, and more.
+
+### Manual Testing
+
 1. Open http://localhost:5173
-2. Login with test credentials
-3. Navigate through all pages
-4. Test inventory operations
-5. Test request workflow
+2. Login with credentials from `backend/.setup-credentials.txt`
+3. Complete forced password change
+4. Test inventory CRUD operations
+5. Test procurement request workflow (submit → approve/reject)
+6. Verify role restrictions (technician cannot access admin pages)
+
+---
+
+## 📊 Production Deployment
+
+### Step-by-Step
+
+1. **Provision a MySQL 8.0 instance** with SSL/TLS enabled
+2. **Create least-privilege database users** (see Database section above)
+3. **Load the schema**:
+   ```bash
+   mysql -u root -p superbee_inventory < backend-setup/database-schema.sql
+   cd backend && node scripts/migrate-db-phase4.js
+   cd backend && node scripts/init-users.js
+   ```
+4. **Configure backend `.env`** (see Configuration section — use strong passwords, set `NODE_ENV=production`)
+5. **Configure frontend `.env`** with your production API URL
+6. **Build the frontend**:
+   ```bash
+   npm run build
+   ```
+7. **Set up a reverse proxy** (Nginx recommended):
+   ```nginx
+   server {
+       listen 443 ssl;
+       server_name superbee.yourdomain.com;
+
+       ssl_certificate     /path/to/cert.pem;
+       ssl_certificate_key /path/to/key.pem;
+
+       # Frontend (static files)
+       location / {
+           root /path/to/project/dist;
+           try_files $uri $uri/ /index.html;
+       }
+
+       # Backend API proxy
+       location /api/ {
+           proxy_pass http://127.0.0.1:5000;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto $scheme;
+       }
+   }
+   ```
+8. **Start the backend** with a process manager:
+   ```bash
+   pm2 start backend/server.js --name sba-ims-backend
+   pm2 save
+   ```
+9. **Delete credentials file**:
+   ```bash
+   rm backend/.setup-credentials.txt
+   ```
+
+### Production Checklist
+
+- [ ] MySQL 8.0 provisioned with SSL/TLS
+- [ ] Least-privilege DB users created (`sba_app`, `sba_readonly`)
+- [ ] Schema loaded and migrations applied
+- [ ] Initial users created (`init-users.js`)
+- [ ] `backend/.env` configured (production values, NOT defaults)
+- [ ] JWT_SECRET is a unique 64+ char random string
+- [ ] `NODE_ENV=production`
+- [ ] CORS_ORIGIN set to production domain
+- [ ] `.env` frontend configured with production API URL
+- [ ] Frontend built (`npm run build`)
+- [ ] SSL certificate installed and HTTPS configured
+- [ ] Nginx reverse proxy configured
+- [ ] Backend running via pm2 (or similar process manager)
+- [ ] Default passwords changed on first login
+- [ ] `backend/.setup-credentials.txt` deleted
+- [ ] Firewall configured (only ports 80/443 exposed)
+- [ ] Database backups scheduled (see `backend/BACKUP_STRATEGY.md`)
+- [ ] Monitoring/alerting configured
 
 ---
 
 ## 🐛 Troubleshooting
 
 ### Backend Not Starting
-- Check if MySQL is running: `systemctl status mysql`
-- Verify database credentials in `backend/.env`
-- Check if port 5000 is available: `lsof -i :5000`
-- Run `npm install` in backend folder
+
+```bash
+# Check if MySQL is running
+systemctl status mysql          # Linux
+brew services list              # macOS
+net start MySQL80               # Windows
+
+# Verify database credentials
+cd backend && node -e "require('dotenv').config(); const m=require('mysql2/promise'); m.createConnection({host:process.env.DB_HOST,user:process.env.DB_USER,password:process.env.DB_PASSWORD,database:process.env.DB_NAME}).then(()=>console.log('✅ DB OK')).catch(e=>console.log('❌',e.message))"
+
+# Check port availability
+lsof -i :5000                   # Linux/macOS
+netstat -ano | findstr 5000     # Windows
+```
 
 ### Frontend Not Loading
-- Clear browser cache (Ctrl + Shift + Delete)
-- Check if backend is running
-- Verify `VITE_API_URL` in `.env`
-- Run `npm install` in root folder
-
-### Database Connection Error
-- Verify MySQL is running
-- Check database exists: `SHOW DATABASES;`
-- Check user permissions
-- Verify credentials in `backend/.env`
+- Clear browser cache (`Ctrl + Shift + Delete`)
+- Verify backend is running and accessible
+- Check `VITE_API_URL` in `.env` matches your backend URL
+- Run `npm install` if dependencies are missing
 
 ### CORS Errors
-- Verify `CORS_ORIGIN` in `backend/.env` matches frontend URL
-- Restart backend after changing environment variables
+- Verify `CORS_ORIGIN` in `backend/.env` exactly matches your frontend URL
+- Include protocol (`http://` or `https://`)
+- Restart backend after changing `.env`
 
----
+### "Access Denied" on Pages
+- Check the user's role in the database
+- Superadmin/Admin can access all pages
+- Technicians can only access: Dashboard, Inventory (view), Requests
 
-## 📊 Production Deployment
-
-To run this application in a production environment:
-1. Ensure your local MySQL database has the schema loaded from `backend-setup/database-schema.sql`.
-2. Populate the default users by running `node scripts/init-users.js` inside the `backend` folder.
-3. Configure `backend/.env` with your secure database passwords, port, and correct CORS domain.
-4. Run `npm run build` at the root of the project to create the production frontend bundle in the `dist` directory.
-5. Serve the frontend using a web server (like Nginx) and keep the backend Node server active using a process manager like `pm2`.
-
----
-
-## 📝 Important Notes
-
-### Default Credentials
-**⚠️ CHANGE THESE AFTER DEPLOYMENT:**
-- Admin: ram@superbee.com / 123456
-- Technician: ae@superbee.com / 123456
-
-### JWT Secret
-The JWT secret is already generated and configured:
-```
-zk4FNDs8fBAZEgx90pvdr5wl6G2PhJUmcoQubOTMYt7iSe1VjHnqIWXCaRK3Ly
-```
-Do not change unless necessary.
-
-### Database Backups
-Set up automated daily backups:
-```bash
-mysqldump -u superbee_user -p superbee_inventory > backup_$(date +%Y%m%d).sql
-```
-
----
-
-## 📞 Support
-
-### For Deployment/Running Issues
-- Review backend node process logs
-- Verify database configuration in `backend/.env`
-- Check firewall settings and port 5000 access
-
-### For Development Issues
-- Check browser console (F12)
-- Review backend logs
-- Verify database connection
-- Check API endpoints
-
----
-
-## ✅ Production Checklist
-
-Before deploying to production:
-- [ ] Database created and schema loaded
-- [ ] Default users initialized
-- [ ] Environment variables configured
-- [ ] Backend tested and running
-- [ ] Frontend built successfully
-- [ ] Nginx configured
-- [ ] SSL certificate installed
-- [ ] Firewall configured
-- [ ] Default passwords changed
-- [ ] Backups scheduled
-- [ ] Monitoring set up
-
----
-
-## 📄 License
-
-Proprietary - SuperBee Aeronautics
+### Rate Limited (429 Error)
+- Wait 15 minutes or clear `login_attempts` table in MySQL
+- Frontend shows a countdown timer automatically
 
 ---
 
 ## 🎯 Quick Commands
 
 ```bash
-# Start development
-npm run dev                    # Frontend
-cd backend && npm run dev      # Backend
+# ─── Development ───
+npm run dev                              # Start frontend dev server
+cd backend && npm run dev                # Start backend dev server
 
-# Build for production
-npm run build                  # Creates dist/ folder
+# ─── Production Build ───
+npm run build                            # Build frontend → ./dist/
 
-# Database setup
-mysql -u root -p < backend-setup/database-schema.sql
-cd backend && node scripts/init-users.js
+# ─── Database ───
+cd backend && node scripts/setup-db.js          # Load schema
+cd backend && node scripts/migrate-db-phase4.js # Run migrations
+cd backend && node scripts/init-users.js        # Create initial users
 
-# Production deployment
-pm2 start backend/server.js --name superbee-backend
+# ─── Security Verification ───
+cd backend && node scripts/verify-security.js   # Run 18 security tests
+
+# ─── Production Deployment ───
+pm2 start backend/server.js --name sba-ims-backend
 pm2 save
+
+# ─── Database Backup ───
+mysqldump -u sba_app -p superbee_inventory > backup_$(date +%Y%m%d).sql
 ```
 
 ---
 
-**Application Status:** ✅ Production Ready  
-**Last Updated:** May 14, 2026  
-**Version:** 1.0.0  
-**Developed For:** SuperBee Aeronautics
+## 📄 License
+
+Proprietary — SuperBee Aeronautics
 
 ---
 
-**Deploy ready on your private organization servers!**
+**Version:** 1.3 | **Security Grade:** A (post-hardening) | **Last Updated:** June 10, 2026  
+**Developed For:** SuperBee Aeronautics
