@@ -60,8 +60,9 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// FIX-16: Enforce request size limits to prevent buffer overflow/exhaustion Denial of Service (DoS) attacks
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
 
 // FIX-15: Apply cookie-based CSRF protection middleware directly after body/cookie parsing
@@ -106,13 +107,22 @@ app.get('/api/trigger-error', (req, res, next) => {
   next(new Error('Internal Database Crash Mock'));
 });
 
+// FIX-21: Redirect and alias middleware from /api/* to /api/v1/* using 307 to preserve HTTP method and payload
+app.use('/api', (req, res, next) => {
+  if (req.path.startsWith('/v1')) {
+    return next();
+  }
+  const newPath = `/api/v1${req.path}`;
+  res.redirect(307, newPath);
+});
+
 // Use routes
-app.use('/api/auth', authRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/categories', categoriesRoutes);
-app.use('/api/users', usersRoutes);
-app.use('/api/ae-requests', aeRequestsRoutes);
-app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/inventory', inventoryRoutes);
+app.use('/api/v1/categories', categoriesRoutes);
+app.use('/api/v1/users', usersRoutes);
+app.use('/api/v1/ae-requests', aeRequestsRoutes);
+app.use('/api/v1/dashboard', dashboardRoutes);
 
 // Error handling middleware
 // FIX-14: Replace error handling middleware to mask stack traces and raw error messages in production

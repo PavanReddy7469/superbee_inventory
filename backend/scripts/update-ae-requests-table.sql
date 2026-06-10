@@ -11,7 +11,7 @@ CREATE TABLE ae_requests (
   uin_number VARCHAR(50) NOT NULL,
   requested_by VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL,
-  items JSON NOT NULL,
+  items JSON NOT NULL, -- Validated at application layer: non-empty array, each element requires part_id (string) and quantity (positive integer)
   status ENUM('pending', 'approved', 'rejected', 'withdrawn') DEFAULT 'pending',
   notes TEXT,
   updated_at TIMESTAMP NULL,

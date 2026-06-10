@@ -37,12 +37,12 @@ exports.login = async (req, res) => {
       return res.status(429).json({ error: 'Account locked due to too many failed login attempts. Try again in 15 minutes.' });
     }
 
-    // Get user with role
+    // Get user with role (excluding soft-deleted users)
     const [users] = await db.query(`
       SELECT u.*, r.name as role_name, r.level as role_level
       FROM users u
       LEFT JOIN roles r ON u.role_id = r.id
-      WHERE u.email = ? AND u.is_active = TRUE
+      WHERE u.email = ? AND u.is_active = TRUE AND u.is_deleted = FALSE
     `, [email]);
 
     const user = users.length > 0 ? users[0] : null;
@@ -131,7 +131,7 @@ exports.getProfile = async (req, res) => {
              r.name as role_name, r.level as role_level
       FROM users u
       LEFT JOIN roles r ON u.role_id = r.id
-      WHERE u.id = ?
+      WHERE u.id = ? AND u.is_deleted = FALSE
     `, [req.user.id]);
 
     if (users.length === 0) {
@@ -169,7 +169,7 @@ exports.getCurrentUser = async (req, res) => {
              r.name as role_name, r.level as role_level
       FROM users u
       LEFT JOIN roles r ON u.role_id = r.id
-      WHERE u.id = ?
+      WHERE u.id = ? AND u.is_deleted = FALSE
     `, [req.user.id]);
 
     if (users.length === 0) {
@@ -214,8 +214,8 @@ exports.changePassword = async (req, res) => {
       return res.status(400).json({ error: 'Old password and new password required' });
     }
 
-    // Get user from database
-    const [users] = await db.query('SELECT password_hash FROM users WHERE id = ?', [req.user.id]);
+    // Get user from database (excluding soft-deleted users)
+    const [users] = await db.query('SELECT password_hash FROM users WHERE id = ? AND is_deleted = FALSE', [req.user.id]);
     if (users.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }

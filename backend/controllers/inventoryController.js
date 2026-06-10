@@ -2,17 +2,39 @@ const db = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 const auditLog = require('../middleware/auditLog');
 
-// Get all inventory parts
+// Get all inventory parts (paginated)
 exports.getAllParts = async (req, res) => {
   try {
+    // FIX-17: Accept query parameters: page (default 1), limit (default 50, max 100)
+    let page = parseInt(req.query.page, 10) || 1;
+    let limit = parseInt(req.query.limit, 10) || 50;
+    if (limit > 100) limit = 100;
+    if (page < 1) page = 1;
+    const offset = (page - 1) * limit;
+
+    // FIX-20: Exclude soft-deleted parts from queries
+    const [countResult] = await db.query('SELECT COUNT(*) as count FROM inventory_parts WHERE is_deleted = FALSE');
+    const total = countResult[0].count;
+
     const [parts] = await db.query(`
       SELECT ip.*, c.name as category_name
       FROM inventory_parts ip
       LEFT JOIN categories c ON ip.category_id = c.id
+      WHERE ip.is_deleted = FALSE
       ORDER BY ip.created_at DESC
-    `);
+      LIMIT ? OFFSET ?
+    `, [limit, offset]);
 
-    res.json(parts);
+    const totalPages = Math.ceil(total / limit);
+
+    // FIX-17: Return paginated response
+    res.json({
+      data: parts,
+      total,
+      page,
+      limit,
+      totalPages
+    });
   } catch (error) {
     console.error('Get inventory error:', error);
     res.status(500).json({ error: 'Failed to fetch inventory' });
@@ -26,7 +48,7 @@ exports.getPartById = async (req, res) => {
       SELECT ip.*, c.name as category_name
       FROM inventory_parts ip
       LEFT JOIN categories c ON ip.category_id = c.id
-      WHERE ip.id = ?
+      WHERE ip.id = ? AND ip.is_deleted = FALSE
     `, [req.params.id]);
 
     if (parts.length === 0) {
@@ -57,7 +79,7 @@ exports.createPart = async (req, res) => {
       INSERT INTO inventory_parts 
       (id, sku, name, category_id, manufacturer, serial_number, quantity, price, status, created_by)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [id, sku, name, category_id, manufacturer, serial_number, quantity || 0, price || 0, status || 'active', created_by]);
+    `, [id, sku, name, category_id, manufacturer, serial_number, quantity || 0, price !== undefined && price !== null ? price : null, status || 'active', created_by]);
 
     // FIX-09: Log part creation to database audit trail
     await auditLog(db, req, 'CREATE_INVENTORY_PART', 'inventory_parts', id, `Inventory part ${sku} created`);
@@ -67,7 +89,7 @@ exports.createPart = async (req, res) => {
       SELECT ip.*, c.name as category_name
       FROM inventory_parts ip
       LEFT JOIN categories c ON ip.category_id = c.id
-      WHERE ip.id = ?
+      WHERE ip.id = ? AND ip.is_deleted = FALSE
     `, [id]);
 
     res.status(201).json({
@@ -90,7 +112,7 @@ exports.updatePart = async (req, res) => {
     const { name, category_id, manufacturer, serial_number, quantity, price, status } = req.body;
 
     // Check if part exists
-    const [existing] = await db.query('SELECT id FROM inventory_parts WHERE id = ?', [id]);
+    const [existing] = await db.query('SELECT id FROM inventory_parts WHERE id = ? AND is_deleted = FALSE', [id]);
     if (existing.length === 0) {
       return res.status(404).json({ error: 'Part not found' });
     }
@@ -109,7 +131,7 @@ exports.updatePart = async (req, res) => {
       SELECT ip.*, c.name as category_name
       FROM inventory_parts ip
       LEFT JOIN categories c ON ip.category_id = c.id
-      WHERE ip.id = ?
+      WHERE ip.id = ? AND ip.is_deleted = FALSE
     `, [id]);
 
     res.json({
@@ -127,7 +149,8 @@ exports.deletePart = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [result] = await db.query('DELETE FROM inventory_parts WHERE id = ?', [id]);
+    // FIX-20: Soft delete part instead of hard deleting
+    const [result] = await db.query('UPDATE inventory_parts SET is_deleted = TRUE, deleted_at = NOW() WHERE id = ?', [id]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Part not found' });

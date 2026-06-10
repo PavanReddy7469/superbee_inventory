@@ -4,25 +4,48 @@ const { v4: uuidv4 } = require('uuid');
 const auditLog = require('../middleware/auditLog');
 const passwordPolicy = require('../utils/passwordPolicy');
 
-// Get all users (filtered by role)
+// Get all users (filtered by role, paginated)
 exports.getAllUsers = async (req, res) => {
   try {
     const { role } = req.query;
+    
+    // FIX-17: Accept query parameters: page (default 1), limit (default 50, max 100)
+    let page = parseInt(req.query.page, 10) || 1;
+    let limit = parseInt(req.query.limit, 10) || 50;
+    if (limit > 100) limit = 100;
+    if (page < 1) page = 1;
+    const offset = (page - 1) * limit;
+
+    // FIX-20: Add WHERE is_deleted = FALSE to SELECT queries
+    let countQuery = `
+      SELECT COUNT(*) as count
+      FROM users u
+      LEFT JOIN roles r ON u.role_id = r.id
+      WHERE u.is_deleted = FALSE
+    `;
     
     let query = `
       SELECT u.*, r.name as role_name, r.level as role_level
       FROM users u
       LEFT JOIN roles r ON u.role_id = r.id
+      WHERE u.is_deleted = FALSE
     `;
     
     const params = [];
+    const countParams = [];
     if (role) {
-      query += ' WHERE r.name = ?';
+      countQuery += ' AND r.name = ?';
+      query += ' AND r.name = ?';
       params.push(role);
+      countParams.push(role);
     }
     
-    query += ' ORDER BY u.created_at DESC';
+    query += ' ORDER BY u.created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
     
+    const [countResult] = await pool.query(countQuery, countParams);
+    const total = countResult[0].count;
+
     const [users] = await pool.query(query, params);
     
     // Format response to match frontend expectations
@@ -42,7 +65,16 @@ exports.getAllUsers = async (req, res) => {
       }
     }));
     
-    res.json(formattedUsers);
+    const totalPages = Math.ceil(total / limit);
+
+    // FIX-17: Return paginated response envelope
+    res.json({
+      data: formattedUsers,
+      total,
+      page,
+      limit,
+      totalPages
+    });
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
@@ -70,7 +102,7 @@ exports.createUser = async (req, res) => {
     }
     
     // Check if user already exists
-    const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
+    const [existing] = await pool.query('SELECT id FROM users WHERE email = ? AND is_deleted = FALSE', [email]);
     if (existing.length > 0) {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
@@ -111,7 +143,7 @@ exports.createUser = async (req, res) => {
       `SELECT u.*, r.name as role_name, r.level as role_level
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
-       WHERE u.id = ?`,
+       WHERE u.id = ? AND u.is_deleted = FALSE`,
       [userId]
     );
     
@@ -170,7 +202,7 @@ exports.deleteUser = async (req, res) => {
       SELECT u.email, r.name as role_name 
       FROM users u 
       LEFT JOIN roles r ON u.role_id = r.id 
-      WHERE u.id = ?
+      WHERE u.id = ? AND u.is_deleted = FALSE
     `, [id]);
 
     if (targetUser.length > 0 && targetUser[0].role_name === 'superadmin') {
@@ -178,7 +210,7 @@ exports.deleteUser = async (req, res) => {
         SELECT COUNT(*) as count 
         FROM users u 
         LEFT JOIN roles r ON u.role_id = r.id 
-        WHERE r.name = 'superadmin'
+        WHERE r.name = 'superadmin' AND u.is_deleted = FALSE
       `);
 
       if (superadmins[0].count <= 1) {
@@ -186,7 +218,8 @@ exports.deleteUser = async (req, res) => {
       }
     }
     
-    await pool.query('DELETE FROM users WHERE id = ?', [id]);
+    // FIX-20: Soft delete user instead of hard deleting
+    await pool.query('UPDATE users SET is_deleted = TRUE, deleted_at = NOW() WHERE id = ?', [id]);
     
     // FIX-09: Log user deletion to database audit trail
     await auditLog(pool, req, 'DELETE_USER', 'users', id, `User with ID ${id} deleted`);

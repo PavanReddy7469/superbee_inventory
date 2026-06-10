@@ -375,12 +375,267 @@ async function runTests() {
       throw new Error(`Unexpected error message: ${errorData.error}`);
     }
 
+    // ----------------------------------------------------
+    // TEST 9: Request Payload Limits (Fix-16)
+    // ----------------------------------------------------
+    console.log('\n--- TEST 9: Request Payload Limits ---');
+    const largePayload = 'A'.repeat(1.5 * 1024 * 1024); // 1.5MB (larger than 1MB limit)
+    const sizeLimitRes = await secureFetch(`${BASE_URL}/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: adminEmail, password: largePayload })
+    });
+    console.log('Large payload status:', sizeLimitRes.status);
+    if (sizeLimitRes.status !== 413) {
+      throw new Error(`Expected HTTP 413 (Payload Too Large), got status ${sizeLimitRes.status}`);
+    }
+    console.log('✅ Request size limits verified successfully (413).');
+
+    // ----------------------------------------------------
+    // TEST 10: API Versioning Redirects (Fix-21)
+    // ----------------------------------------------------
+    console.log('\n--- TEST 10: API Versioning Redirects ---');
+    const redirectRes = await fetch(`${BASE_URL}/inventory`, {
+      method: 'GET',
+      headers: { 'Origin': 'http://localhost:5173' },
+      redirect: 'manual'
+    });
+    console.log('Redirect status:', redirectRes.status);
+    if (redirectRes.status !== 307) {
+      throw new Error(`Expected HTTP 307 Temporary Redirect, got status ${redirectRes.status}`);
+    }
+    const locationHeader = redirectRes.headers.get('location');
+    console.log('Redirect Location header:', locationHeader);
+    if (!locationHeader || !locationHeader.includes('/api/v1/inventory')) {
+      throw new Error(`Expected redirect location to point to /api/v1/inventory, got ${locationHeader}`);
+    }
+    console.log('✅ API route versioning redirects verified successfully (307).');
+
+    // ----------------------------------------------------
+    // TEST 11: List Pagination (Fix-17)
+    // ----------------------------------------------------
+    console.log('\n--- TEST 11: List Pagination ---');
+    const paginatedRes = await secureFetch(`${BASE_URL}/v1/inventory?page=1&limit=2`, {
+      cookie: adminCookie
+    });
+    if (paginatedRes.status !== 200) {
+      throw new Error(`Failed to fetch paginated inventory: status ${paginatedRes.status}`);
+    }
+    const paginatedData = await paginatedRes.json();
+    console.log('Paginated structure check:', {
+      data: Array.isArray(paginatedData.data),
+      total: paginatedData.total,
+      page: paginatedData.page,
+      limit: paginatedData.limit,
+      totalPages: paginatedData.totalPages
+    });
+    if (
+      !Array.isArray(paginatedData.data) ||
+      paginatedData.total === undefined ||
+      paginatedData.page !== 1 ||
+      paginatedData.limit !== 2 ||
+      paginatedData.totalPages === undefined
+    ) {
+      throw new Error('Pagination response envelope does not match expected format.');
+    }
+    console.log('✅ List pagination verified successfully.');
+
+    // ----------------------------------------------------
+    // TEST 12: AE Requests Notes Limit (Fix-19)
+    // ----------------------------------------------------
+    console.log('\n--- TEST 12: AE Requests Notes Limit ---');
+    const tooLongNotes = 'B'.repeat(5001);
+    const notesLimitRes = await secureFetch(`${BASE_URL}/v1/ae-requests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cookie: adminCookie,
+      body: JSON.stringify({
+        drone_number: 'Drone-XYZ',
+        uin_number: 'UIN-XYZ',
+        requested_by: 'Test Tech',
+        email: 'ae@superbee.com',
+        items: [{ part_id: 'sku-test-001', quantity: 2 }],
+        notes: tooLongNotes
+      })
+    });
+    console.log('Too long notes AE request status:', notesLimitRes.status);
+    if (notesLimitRes.status !== 400) {
+      throw new Error(`Expected HTTP 400 for too long notes, got status ${notesLimitRes.status}`);
+    }
+    const notesLimitData = await notesLimitRes.json();
+    console.log('Notes limit response:', JSON.stringify(notesLimitData));
+    if (!notesLimitData.error || !notesLimitData.error.includes('exceed 5000')) {
+      throw new Error(`Expected validation error about notes limit, got: ${JSON.stringify(notesLimitData)}`);
+    }
+    console.log('✅ AE Requests notes length validation verified successfully.');
+
+    // ----------------------------------------------------
+    // TEST 13: Soft Deletion (Fix-20)
+    // ----------------------------------------------------
+    console.log('\n--- TEST 13: Soft Deletion ---');
+    
+    // Create a temporary user to soft delete
+    const tempUserEmail = `softdelete-test-${Date.now()}@superbee.com`;
+    const tempUserEmpId = `EMP-SD-${Date.now()}`;
+    const tempUserId = `user-sd-temp-${Date.now()}`;
+    
+    // Fetch technician role
+    const [roleRes] = await connection.query("SELECT id FROM roles WHERE name = 'technician'");
+    const techRoleId = roleRes[0].id;
+    
+    await connection.query(`
+      INSERT INTO users (id, role_id, name, email, password_hash, employee_id, must_change_password, is_deleted)
+      VALUES (?, ?, 'Temp SD User', ?, 'dummy_hash', ?, 0, FALSE)
+    `, [tempUserId, techRoleId, tempUserEmail, tempUserEmpId]);
+    
+    console.log(`Created temp user for soft deletion check: ${tempUserEmail}`);
+    
+    // Call delete user endpoint
+    const deleteRes = await secureFetch(`${BASE_URL}/v1/users/${tempUserId}`, {
+      method: 'DELETE',
+      cookie: adminCookie
+    });
+    console.log('Delete user API status:', deleteRes.status);
+    if (deleteRes.status !== 200) {
+      throw new Error(`Expected HTTP 200 on user delete API, got status ${deleteRes.status}`);
+    }
+    
+    // Query DB directly to verify row is still present but is_deleted is true
+    const [dbUserRows] = await connection.query("SELECT is_deleted, deleted_at FROM users WHERE id = ?", [tempUserId]);
+    if (dbUserRows.length === 0) {
+      throw new Error('User was hard deleted from database.');
+    }
+    const dbUser = dbUserRows[0];
+    console.log('Database soft delete state:', dbUser);
+    if (dbUser.is_deleted !== 1 && dbUser.is_deleted !== true) {
+      throw new Error('User remains with is_deleted = FALSE after delete API call.');
+    }
+    if (!dbUser.deleted_at) {
+      throw new Error('User deleted_at was not populated.');
+    }
+    
+    // Query list API to verify user is not returned
+    const listRes = await secureFetch(`${BASE_URL}/v1/users?limit=100`, {
+      cookie: adminCookie
+    });
+    const listData = await listRes.json();
+    const foundUserInList = listData.data.some(u => u.id === tempUserId);
+    if (foundUserInList) {
+      throw new Error('Soft deleted user was found in active user list response.');
+    }
+    console.log('✅ User is not returned in active users list.');
+    
+    // Clean up database row
+    await connection.query("DELETE FROM users WHERE id = ?", [tempUserId]);
+    console.log('🧹 Cleaned up soft deletion test user.');
+
+    // ----------------------------------------------------
+    // TEST 14: least privilege env verification (Fix-23)
+    // ----------------------------------------------------
+    console.log('\n--- TEST 14: Least Privilege Env Verification ---');
+    const envExamplePath = path.join(__dirname, '../.env.example');
+    const envExampleContent = fs.readFileSync(envExamplePath, 'utf8');
+    if (!envExampleContent.includes('DB_USER=sba_app')) {
+      throw new Error('.env.example must configure DB_USER=sba_app');
+    }
+    if (envExampleContent.includes('DB_USER=root') && !envExampleContent.includes('# NOT root')) {
+      throw new Error('.env.example must not configure DB_USER=root');
+    }
+    console.log('✅ .env.example DB_USER verification passed.');
+
+    // ----------------------------------------------------
+    // TEST 15: negative quantity constraint check (Fix-24)
+    // ----------------------------------------------------
+    console.log('\n--- TEST 15: Negative Quantity Constraint Check ---');
+    let qError = null;
+    try {
+      await connection.query(`
+        INSERT INTO inventory_parts (id, sku, name, category_id, quantity, price, status)
+        VALUES ('test-chk-qty', 'test-chk-qty', 'Invalid Qty Part', 'cat-001', -1, 10.00, 'active')
+      `);
+    } catch (err) {
+      qError = err;
+    }
+    if (!qError) {
+      throw new Error('Expected database CHECK constraint error when quantity is negative, but query succeeded.');
+    }
+    console.log('✅ Negative quantity insert rejected by DB constraint:', qError.message);
+
+    // ----------------------------------------------------
+    // TEST 16: invalid status constraint check (Fix-24)
+    // ----------------------------------------------------
+    console.log('\n--- TEST 16: Invalid Status Constraint Check ---');
+    let sError = null;
+    try {
+      const requestItems = [{ part_id: 'sku-test-001', quantity: 1 }];
+      await connection.query(`
+        INSERT INTO ae_requests (id, drone_number, uin_number, requested_by, email, items, status)
+        VALUES ('test-chk-status', 'Drone-1', 'UIN-1', 'Test Tech', 'ae@superbee.com', ?, 'hacked')
+      `, [JSON.stringify(requestItems)]);
+    } catch (err) {
+      sError = err;
+    }
+    if (!sError) {
+      throw new Error("Expected database CHECK constraint error when ae_request status is 'hacked', but query succeeded.");
+    }
+    console.log('✅ Invalid ae_request status rejected by DB constraint:', sError.message);
+
+    // ----------------------------------------------------
+    // TEST 17: prevent last superadmin delete trigger (Fix-25)
+    // ----------------------------------------------------
+    console.log('\n--- TEST 17: Prevent Last Superadmin Delete Trigger ---');
+    const [superadmins] = await connection.query(`
+      SELECT u.id FROM users u
+      JOIN roles r ON u.role_id = r.id
+      WHERE r.name = 'superadmin' AND u.is_deleted = FALSE
+    `);
+    console.log(`Current superadmin count: ${superadmins.length}`);
+    const superadminIds = superadmins.map(s => s.id);
+    let triggerError = null;
+    try {
+      if (superadminIds.length > 1) {
+        for (let i = 1; i < superadminIds.length; i++) {
+          await connection.query("UPDATE users SET is_deleted = TRUE WHERE id = ?", [superadminIds[i]]);
+        }
+      }
+      await connection.query("UPDATE users SET is_deleted = TRUE WHERE id = ?", [superadminIds[0]]);
+    } catch (err) {
+      triggerError = err;
+    } finally {
+      if (superadminIds.length > 1) {
+        for (let i = 1; i < superadminIds.length; i++) {
+          await connection.query("UPDATE users SET is_deleted = FALSE WHERE id = ?", [superadminIds[i]]);
+        }
+      }
+    }
+    if (!triggerError) {
+      throw new Error('Expected DB trigger to prevent deleting the last superadmin, but query succeeded.');
+    }
+    if (!triggerError.message.includes('Cannot delete the last superadmin')) {
+      throw new Error(`Expected 'Cannot delete the last superadmin' trigger error, got: ${triggerError.message}`);
+    }
+    console.log('✅ Last superadmin deletion blocked by trigger successfully:', triggerError.message);
+
+    // ----------------------------------------------------
+    // TEST 18: backup strategy documentation (Fix-26)
+    // ----------------------------------------------------
+    console.log('\n--- TEST 18: Backup Strategy Documentation ---');
+    const backupStrategyPath = path.join(__dirname, '../BACKUP_STRATEGY.md');
+    if (!fs.existsSync(backupStrategyPath)) {
+      throw new Error('BACKUP_STRATEGY.md does not exist.');
+    }
+    const backupContent = fs.readFileSync(backupStrategyPath, 'utf8');
+    if (!backupContent.includes('Secrets Rotation Policy')) {
+      throw new Error('BACKUP_STRATEGY.md is missing Secrets Rotation Policy.');
+    }
+    console.log('✅ BACKUP_STRATEGY.md verification passed.');
+
     // Downgrade ram back to admin role
     await connection.query("UPDATE users SET role_id = 'role-001' WHERE email = ?", [adminEmail]);
     console.log('⚡ Restored admin user role.');
 
     console.log('\n==========================================================');
-    console.log('🎉 ALL PHASE 2 SECURITY VERIFICATION TESTS PASSED!');
+    console.log('🎉 ALL PHASE 4 SECURITY VERIFICATION TESTS PASSED!');
     console.log('==========================================================');
 
   } catch (err) {

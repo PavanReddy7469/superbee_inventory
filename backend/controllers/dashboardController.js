@@ -3,15 +3,15 @@ const pool = require('../config/database');
 // Get dashboard statistics
 exports.getStats = async (req, res) => {
   try {
-    // Get total buyers (users with technician role)
+    // Get total buyers (users with technician or admin role, excluding soft-deleted ones)
     const [buyersResult] = await pool.query(`
       SELECT COUNT(*) as count FROM users u
       JOIN roles r ON u.role_id = r.id
-      WHERE r.name IN ('technician', 'admin')
+      WHERE r.name IN ('technician', 'admin') AND u.is_deleted = FALSE
     `);
     
-    // Get total inventory parts
-    const [inventoryResult] = await pool.query('SELECT COUNT(*) as count FROM inventory_parts');
+    // Get total inventory parts (excluding soft-deleted ones)
+    const [inventoryResult] = await pool.query('SELECT COUNT(*) as count FROM inventory_parts WHERE is_deleted = FALSE');
     
     // Get total buyer requests (pending AE requests)
     const [requestsResult] = await pool.query(`
@@ -34,17 +34,19 @@ exports.getProductsByCategory = async (req, res) => {
   try {
     const { category_id } = req.query;
     
+    // FIX-20: Exclude soft-deleted parts from counts and listings
     let query = `
       SELECT 
         ip.*,
         c.name as category_name
       FROM inventory_parts ip
       LEFT JOIN categories c ON ip.category_id = c.id
+      WHERE ip.is_deleted = FALSE
     `;
     
     const params = [];
     if (category_id) {
-      query += ' WHERE ip.category_id = ?';
+      query += ' AND ip.category_id = ?';
       params.push(category_id);
     }
     

@@ -1,6 +1,19 @@
 -- SuperBee Aeronautics Database Schema
 -- MySQL 8.0+
 
+-- SECURITY: Never connect the app as root.
+-- Run these commands as DBA before deploying:
+--
+-- CREATE USER 'sba_app'@'%' IDENTIFIED BY 'strong-random-pw';
+-- GRANT SELECT, INSERT, UPDATE, DELETE 
+--   ON superbee_ims.* TO 'sba_app'@'%';
+--
+-- CREATE USER 'sba_readonly'@'%' IDENTIFIED BY 'readonly-pw';
+-- GRANT SELECT ON superbee_ims.* TO 'sba_readonly'@'%';
+--
+-- REVOKE ALL PRIVILEGES ON superbee_ims.* FROM 'root'@'%';
+-- FLUSH PRIVILEGES;
+
 -- Create Database
 CREATE DATABASE IF NOT EXISTS superbee_inventory CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE superbee_inventory;
@@ -35,7 +48,10 @@ CREATE TABLE users (
   designation VARCHAR(100),
   role_id VARCHAR(36) NOT NULL,
   is_active BOOLEAN DEFAULT TRUE,
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active','inactive')),
   must_change_password BOOLEAN DEFAULT TRUE,
+  is_deleted BOOLEAN DEFAULT FALSE,
+  deleted_at TIMESTAMP NULL DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT,
@@ -70,9 +86,11 @@ CREATE TABLE inventory_parts (
   category_id VARCHAR(36),
   manufacturer VARCHAR(255),
   serial_number VARCHAR(255),
-  quantity INT DEFAULT 0,
-  price DECIMAL(10, 2) DEFAULT 0.00,
+  quantity INT NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+  price DECIMAL(10, 2) DEFAULT NULL CHECK (price > 0),
   status ENUM('active', 'inactive') DEFAULT 'active',
+  is_deleted BOOLEAN DEFAULT FALSE,
+  deleted_at TIMESTAMP NULL DEFAULT NULL,
   created_by VARCHAR(36),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -122,8 +140,8 @@ CREATE TABLE ae_requests (
   uin_number VARCHAR(50) NOT NULL,
   requested_by VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL,
-  items JSON NOT NULL,
-  status ENUM('pending', 'accepted', 'rejected') DEFAULT 'pending',
+  items JSON NOT NULL COMMENT 'Array of {part_id: string, quantity: int > 0}', -- Primary validation is handled at application layer in aeRequestsController.js
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected','withdrawn')),
   notes TEXT,
   processed_at TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -294,6 +312,25 @@ BEGIN
   END IF;
 END //
 
+DELIMITER ;
+
+DELIMITER $$
+CREATE TRIGGER prevent_last_superadmin_delete
+BEFORE UPDATE ON users
+FOR EACH ROW
+BEGIN
+  IF NEW.is_deleted = TRUE AND OLD.is_deleted = FALSE THEN
+    IF (SELECT r.name FROM roles r WHERE r.id = OLD.role_id) = 'superadmin' THEN
+      IF (SELECT COUNT(*) FROM users u 
+          JOIN roles r ON u.role_id = r.id
+          WHERE r.name = 'superadmin' 
+          AND u.is_deleted = FALSE) <= 1 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Cannot delete the last superadmin account';
+      END IF;
+    END IF;
+  END IF;
+END$$
 DELIMITER ;
 
 -- ============================================

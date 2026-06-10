@@ -1,7 +1,10 @@
 import axios from 'axios';
 
 // FIX-08: Change fallback base URL from http to https to ensure TLS
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:5000/api';
+// FIX-21: Add /v1 to API base URL for proper version routing
+const API_BASE_URL = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/v1` 
+  : 'https://localhost:5000/api/v1';
 
 // Create axios instance
 const api = axios.create({

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
-import ProtectedRoute from './components/ProtectedRoute';
+import PrivateRoute from './components/PrivateRoute';
 import DashboardLayout from './components/DashboardLayout';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
@@ -20,6 +20,8 @@ import AddDronePage from './pages/AddDronePage';
 import SendRequestPage from './pages/SendRequestPage';
 import GenerateInvoicePage from './pages/GenerateInvoicePage';
 import GenerateAOPage from './pages/GenerateAOPage';
+import UnauthorizedPage from './pages/UnauthorizedPage';
+import ChangePasswordPage from './pages/ChangePasswordPage';
 import { autoSeedIfNeeded } from './utils/seedDummyData';
 import { initializeMockData } from './utils/mockData';
 
@@ -36,92 +38,101 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/unauthorized" element={<UnauthorizedPage />} />
+            <Route
+              path="/change-password"
+              element={
+                <PrivateRoute>
+                  <ChangePasswordPage />
+                </PrivateRoute>
+              }
+            />
 
             <Route
               path="/dashboard"
               element={
-                <ProtectedRoute>
+                <PrivateRoute>
                   <DashboardLayout>
                     <DashboardEntry />
                   </DashboardLayout>
-                </ProtectedRoute>
+                </PrivateRoute>
               }
             />
 
             <Route
               path="/dashboard/buyers"
               element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+                <PrivateRoute requiredRoles={['superadmin', 'admin']}>
                   <DashboardLayout>
                     <BuyersPage />
                   </DashboardLayout>
-                </ProtectedRoute>
+                </PrivateRoute>
               }
             />
 
             <Route
               path="/dashboard/ae-requests"
               element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+                <PrivateRoute requiredRoles={['superadmin', 'admin']}>
                   <DashboardLayout>
                     <AeRequestsPage />
                   </DashboardLayout>
-                </ProtectedRoute>
+                </PrivateRoute>
               }
             />
 
             <Route
               path="/dashboard/drones"
               element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+                <PrivateRoute requiredRoles={['superadmin', 'admin']}>
                   <DashboardLayout>
                     <DronesPage />
                   </DashboardLayout>
-                </ProtectedRoute>
+                </PrivateRoute>
               }
             />
 
             <Route
               path="/dashboard/drone-types"
               element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+                <PrivateRoute requiredRoles={['superadmin', 'admin']}>
                   <DashboardLayout>
                     <DroneTypesPage />
                   </DashboardLayout>
-                </ProtectedRoute>
+                </PrivateRoute>
               }
             />
 
             <Route
               path="/dashboard/drones/add"
               element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+                <PrivateRoute requiredRoles={['superadmin', 'admin']}>
                   <DashboardLayout>
                     <AddDronePage />
                   </DashboardLayout>
-                </ProtectedRoute>
+                </PrivateRoute>
               }
             />
 
             <Route
               path="/dashboard/generate-invoice"
               element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+                <PrivateRoute requiredRoles={['superadmin', 'admin']}>
                   <DashboardLayout>
                     <GenerateInvoicePage />
                   </DashboardLayout>
-                </ProtectedRoute>
+                </PrivateRoute>
               }
             />
 
             <Route
               path="/dashboard/generate-ao"
               element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+                <PrivateRoute requiredRoles={['superadmin', 'admin']}>
                   <DashboardLayout>
                     <GenerateAOPage />
                   </DashboardLayout>
-                </ProtectedRoute>
+                </PrivateRoute>
               }
             />
 
@@ -129,66 +140,66 @@ function App() {
             <Route
               path="/dashboard/pi-request"
               element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+                <PrivateRoute requiredRoles={['superadmin', 'admin']}>
                   <DashboardLayout>
                     <PiRequestPage />
                   </DashboardLayout>
-                </ProtectedRoute>
+                </PrivateRoute>
               }
             />
 
             <Route
               path="/dashboard/categories"
               element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+                <PrivateRoute requiredRoles={['superadmin', 'admin']}>
                   <DashboardLayout>
                     <CategoriesPage />
                   </DashboardLayout>
-                </ProtectedRoute>
+                </PrivateRoute>
               }
             />
 
             <Route
               path="/dashboard/inventory"
               element={
-                <ProtectedRoute>
+                <PrivateRoute>
                   <DashboardLayout>
                     <InventoryPage />
                   </DashboardLayout>
-                </ProtectedRoute>
+                </PrivateRoute>
               }
             />
 
             <Route
               path="/dashboard/cart"
               element={
-                <ProtectedRoute allowedRoles={['technician', 'admin', 'superadmin']}>
+                <PrivateRoute requiredRoles={['technician', 'admin', 'superadmin']}>
                   <DashboardLayout>
                     <CartPage />
                   </DashboardLayout>
-                </ProtectedRoute>
+                </PrivateRoute>
               }
             />
 
             <Route
               path="/dashboard/inventory/register"
               element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'technician']}>
+                <PrivateRoute requiredRoles={['superadmin', 'admin', 'technician']}>
                   <DashboardLayout>
                     <RegisterPartPage />
                   </DashboardLayout>
-                </ProtectedRoute>
+                </PrivateRoute>
               }
             />
 
             <Route
               path="/dashboard/send-request"
               element={
-                <ProtectedRoute allowedRoles={['technician']}>
+                <PrivateRoute requiredRoles={['technician']}>
                   <DashboardLayout>
                     <SendRequestPage />
                   </DashboardLayout>
-                </ProtectedRoute>
+                </PrivateRoute>
               }
             />
 

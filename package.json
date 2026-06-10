@@ -15,7 +15,9 @@
     "postinstall": "npm install --prefix backend"
   },
   "dependencies": {
+    "@types/dompurify": "^3.0.5",
     "axios": "1.16.1",
+    "dompurify": "^3.4.9",
     "jspdf": "3.0.3",
     "jspdf-autotable": "5.0.2",
     "lucide-react": "0.344.0",

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Lock, Mail, X, Send, ArrowLeft } from 'lucide-react';
@@ -18,27 +18,49 @@ export default function LoginPage() {
   const { signIn, profile } = useAuth();
   const navigate = useNavigate();
 
+  // Rate limiting lockout state
+  const [lockoutTime, setLockoutTime] = useState<number>(0);
+
+  useEffect(() => {
+    if (lockoutTime <= 0) return;
+    const interval = setInterval(() => {
+      setLockoutTime((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutTime]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      await signIn(email, password);
-      for (let i = 0; i < 10; i++) {
-        console.log('Checking profile:', profile);
-        if (profile && profile.role) break;
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise((r) => setTimeout(r, 150));
+      const result = await signIn(email, password);
+      
+      // If forced password change flow is active
+      if (result.requiresPasswordChange) {
+        navigate('/change-password');
+        return;
       }
 
-      if (profile?.role?.name === 'technician') {
+      if (result.role === 'technician') {
         navigate('/dashboard/inventory');
       } else {
         navigate('/dashboard');
       }
-    } catch (err) {
-      setError('Invalid email or password');
+    } catch (err: any) {
+      if (err.message && (err.message.includes('Too many login attempts') || err.message.includes('15 min') || err.message.includes('429'))) {
+        setError('Too many login attempts. Please try again in 15 minutes.');
+        setLockoutTime(900); // 15 minutes client lock
+      } else {
+        setError(err.message || 'Invalid email or password');
+      }
       console.error('Login error:', err);
     } finally {
       setLoading(false);
@@ -147,7 +169,7 @@ export default function LoginPage() {
             {/* Sign In Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || lockoutTime > 0}
               className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-3 rounded-lg font-semibold hover:from-cyan-400 hover:to-blue-500 transition-all duration-200 shadow-lg hover:shadow-cyan-500/40 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
             >
               {loading ? (
@@ -158,6 +180,8 @@ export default function LoginPage() {
                   </svg>
                   Signing in...
                 </span>
+              ) : lockoutTime > 0 ? (
+                `Locked out for ${formatTime(lockoutTime)}`
               ) : 'Sign In'}
             </button>
           </form>

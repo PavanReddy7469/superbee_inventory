@@ -89,8 +89,8 @@ exports.deleteCategory = async (req, res) => {
       return res.status(404).json({ error: 'Category not found' });
     }
 
-    // Check if any parts are associated with this category
-    const [parts] = await db.query('SELECT id FROM inventory_parts WHERE category_id = ?', [id]);
+    // Check if any active parts are associated with this category (excluding soft-deleted parts)
+    const [parts] = await db.query('SELECT id FROM inventory_parts WHERE category_id = ? AND is_deleted = FALSE', [id]);
     if (parts.length > 0) {
       return res.status(400).json({ 
         error: 'Cannot delete category with associated inventory parts. Please reassign or delete the parts first.' 

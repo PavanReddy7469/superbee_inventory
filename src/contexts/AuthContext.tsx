@@ -48,10 +48,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userData = response.data;
         setUser({ id: userData.id, email: userData.email });
         setProfile(userData);
-      } catch (error) {
-        // Not authenticated
+      } catch (error: any) {
         setUser(null);
         setProfile(null);
+        // FIX-31: If 401 and not on public paths, redirect to /login
+        if (error.response?.status === 401 && window.location.pathname !== '/' && window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       } finally {
         setLoading(false);
       }
@@ -69,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser({ id: userData.id, email: userData.email });
       setProfile(userData);
       
-      return { requiresPasswordChange: !!requiresPasswordChange };
+      return { requiresPasswordChange: !!requiresPasswordChange, role: userData.role?.name };
     } catch (error: any) {
       console.error('Login error:', error);
       throw new Error(error.response?.data?.error || 'Login failed');
@@ -101,7 +104,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, signIn, signOut, changePassword }}>
-      {children}
+      {loading ? (
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+          <div className="text-white text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto mb-4"></div>
+            <p className="text-slate-400 text-sm tracking-wider uppercase font-semibold">Loading Workspace...</p>
+          </div>
+        </div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 }

@@ -21,21 +21,52 @@ exports.validateAERequestItems = (req, res, next) => {
 };
 
 
-// Get all AE requests
+// Get all AE requests (paginated)
 exports.getAllRequests = async (req, res) => {
   try {
+    // FIX-17: Accept query parameters: page (default 1), limit (default 50, max 100)
+    let page = parseInt(req.query.page, 10) || 1;
+    let limit = parseInt(req.query.limit, 10) || 50;
+    if (limit > 100) limit = 100;
+    if (page < 1) page = 1;
+    const offset = (page - 1) * limit;
+
+    const [countResult] = await pool.query('SELECT COUNT(*) as count FROM ae_requests');
+    const total = countResult[0].count;
+
     const [requests] = await pool.query(`
       SELECT * FROM ae_requests
       ORDER BY created_at DESC
-    `);
+      LIMIT ? OFFSET ?
+    `, [limit, offset]);
     
-    // Parse items JSON
-    const formattedRequests = requests.map(req => ({
-      ...req,
-      items: typeof req.items === 'string' ? JSON.parse(req.items) : req.items
-    }));
+    // Parse items JSON safely
+    const formattedRequests = requests.map(req => {
+      let parsedItems = req.items;
+      if (typeof req.items === 'string') {
+        try {
+          parsedItems = JSON.parse(req.items);
+        } catch (e) {
+          console.error('Error parsing items JSON for request:', req.id, e);
+          parsedItems = [];
+        }
+      }
+      return {
+        ...req,
+        items: parsedItems
+      };
+    });
+
+    const totalPages = Math.ceil(total / limit);
     
-    res.json(formattedRequests);
+    // FIX-17: Return paginated response
+    res.json({
+      data: formattedRequests,
+      total,
+      page,
+      limit,
+      totalPages
+    });
   } catch (error) {
     console.error('Error fetching AE requests:', error);
     res.status(500).json({ error: 'Failed to fetch AE requests' });
@@ -45,18 +76,29 @@ exports.getAllRequests = async (req, res) => {
 // Create new AE request
 exports.createRequest = async (req, res) => {
   try {
-    const { drone_number, uin_number, items, requested_by, email } = req.body;
+    const { drone_number, uin_number, items, requested_by, email, notes } = req.body;
     
     if (!drone_number || !uin_number || !items || items.length === 0) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
+
+    // FIX-19: Validate notes length to prevent database buffer exploitation (max 5000 chars)
+    if (notes && notes.length > 5000) {
+      return res.status(400).json({ error: 'Notes field cannot exceed 5000 characters' });
+    }
     
     const requestId = uuidv4();
+
+    // FIX-18: Sanitize and map input items to avoid unauthorized parameter pollution
+    const sanitizedItems = items.map(item => ({
+      part_id: String(item.part_id),
+      quantity: Number(item.quantity)
+    }));
     
     await pool.query(
-      `INSERT INTO ae_requests (id, drone_number, uin_number, items, requested_by, email, status)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
-      [requestId, drone_number, uin_number, JSON.stringify(items), requested_by, email]
+      `INSERT INTO ae_requests (id, drone_number, uin_number, items, requested_by, email, status, notes)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`,
+      [requestId, drone_number, uin_number, JSON.stringify(sanitizedItems), requested_by, email, notes || null]
     );
     
     res.status(201).json({
@@ -95,20 +137,43 @@ exports.acceptRequest = async (req, res) => {
       return res.status(400).json({ error: `Request has already been processed (status: ${request.status})` });
     }
     
-    // Parse items
-    const items = typeof request.items === 'string' ? JSON.parse(request.items) : request.items;
+    // FIX-18: Wrap items JSON parsing in a try/catch and perform structural validation checks inside acceptRequest
+    let items;
+    try {
+      items = typeof request.items === 'string' ? JSON.parse(request.items) : request.items;
+    } catch (e) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Failed to parse request items JSON payload' });
+    }
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Items payload must be a non-empty array' });
+    }
+
+    for (const item of items) {
+      if (!item.part_id || typeof item.part_id !== 'string') {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Each item must have a valid part_id (string)' });
+      }
+      const qty = Number(item.quantity);
+      if (item.quantity === undefined || item.quantity === null || !Number.isInteger(qty) || qty <= 0) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Each item must have a positive integer quantity' });
+      }
+    }
     
     // Decrement inventory for each item
     for (const item of items) {
-      // FIX-05: Acquire row-level locks on the target parts to prevent other transactions from modifying them simultaneously
+      // FIX-20: Exclude soft-deleted parts from inventory locks to prevent stock depletion on deactivated assets
       const [parts] = await connection.query(
-        'SELECT quantity FROM inventory_parts WHERE sku = ? FOR UPDATE',
+        'SELECT quantity FROM inventory_parts WHERE sku = ? AND is_deleted = FALSE FOR UPDATE',
         [item.part_id]
       );
       
       if (parts.length === 0) {
         await connection.rollback();
-        return res.status(400).json({ error: `Part ${item.part_id} not found` });
+        return res.status(400).json({ error: `Part ${item.part_id} not found or has been deleted` });
       }
       
       const newQuantity = parts[0].quantity - item.quantity;
