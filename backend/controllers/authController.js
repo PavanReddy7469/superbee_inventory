@@ -1,6 +1,8 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../config/database');
+const auditLog = require('../middleware/auditLog');
+const passwordPolicy = require('../utils/passwordPolicy');
 
 // Login
 exports.login = async (req, res) => {
@@ -28,6 +30,9 @@ exports.login = async (req, res) => {
         INSERT INTO login_attempts (email, ip_address, user_agent, success)
         VALUES (?, ?, ?, FALSE)
       `, [email, ipAddress, userAgent]);
+      
+      // FIX-09: Log locked login failure to audit_logs table
+      await auditLog(db, req, 'LOGIN_FAILED', 'users', null, `Failed login attempt: Account locked for email: ${email}`);
       
       return res.status(429).json({ error: 'Account locked due to too many failed login attempts. Try again in 15 minutes.' });
     }
@@ -57,6 +62,9 @@ exports.login = async (req, res) => {
         VALUES (?, ?, ?, FALSE)
       `, [email, ipAddress, userAgent]);
 
+      // FIX-09: Log login failure to audit_logs table
+      await auditLog(db, req, 'LOGIN_FAILED', 'users', null, `Failed login attempt for email: ${email}`);
+
       // FIX-06: Uniform error message to prevent user enumeration (disclosing if email exists or not)
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -66,6 +74,11 @@ exports.login = async (req, res) => {
       INSERT INTO login_attempts (email, ip_address, user_agent, success)
       VALUES (?, ?, ?, TRUE)
     `, [email, ipAddress, userAgent]);
+
+    // Set req.user to ensure user ID is recorded in audit log
+    req.user = { id: user.id };
+    // FIX-09: Log successful login to database audit trail
+    await auditLog(db, req, 'LOGIN_SUCCESS', 'users', user.id, `User ${email} logged in successfully`);
 
     // Generate JWT token
     const token = jwt.sign(
@@ -215,6 +228,19 @@ exports.changePassword = async (req, res) => {
       return res.status(400).json({ error: 'Invalid current password' });
     }
 
+    // FIX-11: Ensure new password is different from the old password
+    if (newPassword === oldPassword) {
+      return res.status(400).json({ error: 'New password must be different from the old password' });
+    }
+
+    // FIX-11: Validate password complexity schema before hashing
+    const failedRules = passwordPolicy.validate(newPassword, { list: true });
+    if (failedRules.length > 0) {
+      return res.status(400).json({ 
+        error: `New password does not meet complexity rules. Failed rules: ${failedRules.join(', ')}` 
+      });
+    }
+
     // Hash new password
     // FIX-02: Increase bcrypt rounds from 10 to 12
     const salt = await bcrypt.genSalt(12);
@@ -223,6 +249,9 @@ exports.changePassword = async (req, res) => {
     // Update password
     // FIX-02: Reset must_change_password flag to FALSE (0) upon manual password change completion
     await db.query('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?', [passwordHash, req.user.id]);
+
+    // FIX-09: Log password change to database audit trail
+    await auditLog(db, req, 'PASSWORD_CHANGED', 'users', req.user.id, `User password changed successfully`);
 
     res.json({ message: 'Password updated successfully' });
   } catch (error) {

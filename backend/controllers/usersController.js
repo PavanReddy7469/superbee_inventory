@@ -1,6 +1,8 @@
 const pool = require('../config/database');
 const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
+const auditLog = require('../middleware/auditLog');
+const passwordPolicy = require('../utils/passwordPolicy');
 
 // Get all users (filtered by role)
 exports.getAllUsers = async (req, res) => {
@@ -81,6 +83,14 @@ exports.createUser = async (req, res) => {
     
     const roleId = roleResult[0].id;
     
+    // FIX-11: Validate password using password-validator schema before hashing
+    const failedRules = passwordPolicy.validate(password, { list: true });
+    if (failedRules.length > 0) {
+      return res.status(400).json({ 
+        error: `Password does not meet complexity rules. Failed rules: ${failedRules.join(', ')}` 
+      });
+    }
+
     // Hash password
     // FIX-02: Increase bcrypt rounds from 10 to 12 for stronger password hashing resistance
     const hashedPassword = await bcrypt.hash(password, 12);
@@ -92,6 +102,9 @@ exports.createUser = async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1)`,
       [userId, roleId, name, email, hashedPassword, mobile_number, employee_id, designation]
     );
+    
+    // FIX-09: Log user creation to database audit trail
+    await auditLog(pool, req, 'CREATE_USER', 'users', userId, `User ${email} created successfully`);
     
     // Fetch created user
     const [newUser] = await pool.query(
@@ -132,6 +145,9 @@ exports.updateUserStatus = async (req, res) => {
     
     await pool.query('UPDATE users SET is_active = ? WHERE id = ?', [is_active ? 1 : 0, id]);
     
+    // FIX-09: Log user status change to database audit trail
+    await auditLog(pool, req, 'UPDATE_USER_STATUS', 'users', id, `User status updated to ${is_active ? 'active' : 'inactive'}`);
+    
     res.json({ message: 'User status updated successfully' });
   } catch (error) {
     console.error('Error updating user status:', error);
@@ -171,6 +187,9 @@ exports.deleteUser = async (req, res) => {
     }
     
     await pool.query('DELETE FROM users WHERE id = ?', [id]);
+    
+    // FIX-09: Log user deletion to database audit trail
+    await auditLog(pool, req, 'DELETE_USER', 'users', id, `User with ID ${id} deleted`);
     
     res.json({ message: 'User deleted successfully' });
   } catch (error) {

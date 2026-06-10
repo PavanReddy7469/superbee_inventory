@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const helmet = require('helmet');
+const csrf = require('csurf');
 const { generalLimiter } = require('./middleware/rateLimiter');
 require('dotenv').config();
 
@@ -12,24 +14,64 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-const allowedOrigins = process.env.CORS_ORIGIN 
-  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()) 
-  : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'];
+// FIX-08: Apply Helmet security response headers to enforce strong CSP, deny clickjacking (X-Frame-Options: DENY), and disable frames/object reuse
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc:  ["'self'"],
+      styleSrc:   ["'self'", "'unsafe-inline'"],
+      imgSrc:     ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", process.env.FRONTEND_URL || 'http://localhost:5173'],
+      frameSrc:   ["'none'"],
+      objectSrc:  ["'none'"],
+    }
+  },
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  frameguard: { action: 'deny' }
+}));
+
+// FIX-08: Redirect all insecure HTTP traffic to HTTPS in production environments
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    if (req.header('x-forwarded-proto') !== 'https') {
+      return res.redirect(301, `https://${req.header('host')}${req.url}`);
+    }
+    next();
+  });
+}
+
+// FIX-12: Enforce strict whitelist CORS mapping (No wildcards or loose regex matching for localhost)
+const allowedOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin)) {
+    if (!origin) {
+      return callback(new Error('Origin header required'));
+    }
+    if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    return callback(new Error('Not allowed by CORS'));
+    return callback(new Error(`CORS: ${origin} not allowed`));
   },
   credentials: true
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// FIX-15: Apply cookie-based CSRF protection middleware directly after body/cookie parsing
+app.use(csrf({
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Strict'
+  }
+}));
 
 // FIX-06: Apply general rate limiter to protect all /api routes from DoS/abuse
 app.use('/api', generalLimiter);
@@ -59,6 +101,11 @@ const usersRoutes = require('./routes/users');
 const aeRequestsRoutes = require('./routes/aeRequests');
 const dashboardRoutes = require('./routes/dashboard');
 
+// Test error endpoint for security verification of global error handler
+app.get('/api/trigger-error', (req, res, next) => {
+  next(new Error('Internal Database Crash Mock'));
+});
+
 // Use routes
 app.use('/api/auth', authRoutes);
 app.use('/api/inventory', inventoryRoutes);
@@ -68,11 +115,18 @@ app.use('/api/ae-requests', aeRequestsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 // Error handling middleware
+// FIX-14: Replace error handling middleware to mask stack traces and raw error messages in production
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ 
-    error: 'Something went wrong!',
-    message: err.message 
+  console.error(`[ERROR] ${new Date().toISOString()} — ${err.stack}`);
+  
+  if (err.code === 'EBADCSRFTOKEN') {
+    return res.status(403).json({ error: 'Invalid or missing CSRF token' });
+  }
+
+  const isDev = process.env.NODE_ENV !== 'production';
+  res.status(err.status || 500).json({
+    error: isDev ? err.message : 'An internal error occurred.',
+    ...(isDev && { stack: err.stack })
   });
 });
 

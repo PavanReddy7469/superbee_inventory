@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// FIX-08: Change fallback base URL from http to https to ensure TLS
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:5000/api';
 
 // Create axios instance
 const api = axios.create({
@@ -11,6 +12,37 @@ const api = axios.create({
   // FIX-03: Enable cookies/credentials automatically on all Axios API requests
   withCredentials: true,
 });
+
+// CSRF token storage
+let csrfToken: string | null = null;
+
+// FIX-15: Helper to fetch the CSRF token on initialization
+export const fetchCsrfToken = async () => {
+  try {
+    const response = await api.get('/auth/csrf-token');
+    csrfToken = response.data.csrfToken;
+    return csrfToken;
+  } catch (error) {
+    console.error('Failed to fetch CSRF token:', error);
+    return null;
+  }
+};
+
+// FIX-15: Request interceptor to attach X-CSRF-Token header on all non-GET/safe requests
+api.interceptors.request.use(
+  (config) => {
+    const method = config.method?.toUpperCase();
+    if (method && method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+      if (csrfToken) {
+        config.headers['X-CSRF-Token'] = csrfToken;
+      }
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // Handle token expiration
 api.interceptors.response.use(

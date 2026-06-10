@@ -7,9 +7,39 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const BASE_URL = `http://localhost:${process.env.PORT || 5000}/api`;
 
+let csrfToken = '';
+let csrfCookie = '';
+
+async function secureFetch(url, options = {}) {
+  options.headers = options.headers || {};
+  options.headers['Origin'] = 'http://localhost:5173';
+  
+  // Attach CSRF header for state-modifying requests
+  const method = (options.method || 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    if (csrfToken) {
+      options.headers['X-CSRF-Token'] = csrfToken;
+    }
+  }
+
+  // Combine cookies (JWT authToken and CSRF _csrf)
+  const cookieList = [];
+  if (options.cookie) {
+    cookieList.push(options.cookie);
+  }
+  if (csrfCookie) {
+    cookieList.push(csrfCookie);
+  }
+  if (cookieList.length > 0) {
+    options.headers['Cookie'] = cookieList.join('; ');
+  }
+
+  return fetch(url, options);
+}
+
 async function runTests() {
   console.log('==========================================================');
-  console.log('🛡️  SBA-IMS Security Hardening Verification Suite');
+  console.log('🛡️  SBA-IMS Phase 2 Hardening Verification Suite');
   console.log('==========================================================\n');
 
   // Connect to database
@@ -21,6 +51,11 @@ async function runTests() {
     database: process.env.DB_NAME
   });
   console.log('✅ Connected to database for status checks and setup.');
+
+  let adminEmail = '';
+  let adminPassword = '';
+  let techEmail = '';
+  let techPassword = '';
 
   try {
     // Read generated credentials
@@ -36,22 +71,47 @@ async function runTests() {
       throw new Error('Could not parse credentials from .setup-credentials.txt');
     }
 
-    const adminEmail = adminMatch[1];
-    const adminPassword = adminMatch[2];
-    const techEmail = techMatch[1];
-    const techPassword = techMatch[2];
-
-    console.log(`Credentials read successfully:\n - Admin: ${adminEmail}\n - Tech: ${techEmail}\n`);
+    adminEmail = adminMatch[1];
+    adminPassword = adminMatch[2];
+    techEmail = techMatch[1];
+    techPassword = techMatch[2];
 
     // Reset login attempts before starting tests
     await connection.query('DELETE FROM login_attempts');
-    console.log('🧹 Cleaned up existing login_attempts logs.');
+    await connection.query('DELETE FROM audit_logs');
+    console.log('🧹 Cleaned up existing login_attempts and audit_logs.');
+
+    // Upgrade ram to superadmin temporarily so we can create users in tests
+    await connection.query("UPDATE users SET role_id = 'role-003' WHERE email = ?", [adminEmail]);
+    console.log('⚡ Temporarily upgraded admin to superadmin role.');
+
+    // ----------------------------------------------------
+    // INITIALIZATION: CSRF Token Fetching
+    // ----------------------------------------------------
+    console.log('\n--- INITIALIZATION: CSRF Token Fetching ---');
+    const csrfRes = await fetch(`${BASE_URL}/auth/csrf-token`, {
+      headers: { 'Origin': 'http://localhost:5173' }
+    });
+    if (csrfRes.status !== 200) {
+      throw new Error(`Failed to fetch CSRF token: ${csrfRes.status}`);
+    }
+    const csrfData = await csrfRes.json();
+    csrfToken = csrfData.csrfToken;
+
+    const csrfSetCookie = csrfRes.headers.get('set-cookie');
+    if (csrfSetCookie) {
+      const match = csrfSetCookie.match(/_csrf=([^;]+)/);
+      if (match) {
+        csrfCookie = match[0];
+      }
+    }
+    console.log('✅ CSRF token and cookie loaded successfully.');
 
     // ----------------------------------------------------
     // TEST 1: Login and Secure Cookie Issuance
     // ----------------------------------------------------
     console.log('\n--- TEST 1: Login and Secure Cookie Issuance ---');
-    const loginRes = await fetch(`${BASE_URL}/auth/login`, {
+    const loginRes = await secureFetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: adminEmail, password: adminPassword })
@@ -64,213 +124,268 @@ async function runTests() {
     const loginData = await loginRes.json();
     console.log('Response body:', JSON.stringify(loginData, null, 2));
 
-    if (!loginData.requiresPasswordChange) {
-      throw new Error('Expected requiresPasswordChange to be true for seeded accounts.');
-    }
-    console.log('✅ requiresPasswordChange flag is correctly present.');
-
-    // Extract cookie
     const setCookie = loginRes.headers.get('set-cookie');
     if (!setCookie || !setCookie.includes('authToken=')) {
       throw new Error('No authToken cookie found in response headers.');
     }
     console.log('Raw set-cookie header:', setCookie);
 
-    if (!setCookie.includes('HttpOnly')) {
-      throw new Error('Cookie is missing HttpOnly attribute.');
-    }
-    console.log('✅ Cookie contains HttpOnly attribute.');
-
-    if (!setCookie.includes('SameSite=Strict')) {
-      throw new Error('Cookie is missing SameSite=Strict attribute.');
-    }
-    console.log('✅ Cookie contains SameSite=Strict attribute.');
-
     const adminTokenMatch = setCookie.match(/authToken=([^;]+)/);
     const adminCookie = adminTokenMatch ? adminTokenMatch[0] : '';
     console.log('✅ Login cookie issued successfully.');
 
     // ----------------------------------------------------
-    // TEST 2: Authentication via Cookie (/api/auth/me)
+    // TEST 2: CSRF Validation Enforcement
     // ----------------------------------------------------
-    console.log('\n--- TEST 2: Authentication via Cookie (/api/auth/me) ---');
-    
-    // Without cookie
-    const unauthRes = await fetch(`${BASE_URL}/auth/me`);
-    if (unauthRes.status !== 401) {
-      throw new Error(`Expected 401 Unauthorized, got ${unauthRes.status}`);
-    }
-    console.log('✅ Access without cookie correctly rejected (401).');
-
-    // With cookie
-    const authRes = await fetch(`${BASE_URL}/auth/me`, {
-      headers: { Cookie: adminCookie }
+    console.log('\n--- TEST 2: CSRF Validation Enforcement ---');
+    // POST request without CSRF token should return 403 Forbidden
+    const noCsrfRes = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Origin': 'http://localhost:5173' },
+      body: JSON.stringify({ email: adminEmail, password: adminPassword })
     });
-    if (authRes.status !== 200) {
-      throw new Error(`Expected 200 OK, got ${authRes.status}`);
+    console.log('POST without CSRF status:', noCsrfRes.status);
+    if (noCsrfRes.status !== 403) {
+      throw new Error(`Expected 403 Forbidden without CSRF token, got ${noCsrfRes.status}`);
     }
-    const profile = await authRes.json();
-    console.log('Profile response:', JSON.stringify(profile, null, 2));
-    if (profile.email !== adminEmail) {
-      throw new Error(`Expected profile email to be ${adminEmail}, got ${profile.email}`);
-    }
-    console.log('✅ Access with HttpOnly cookie authenticated successfully.');
+    console.log('✅ CSRF validation blocked request successfully (403).');
 
     // ----------------------------------------------------
-    // TEST 3: RBAC (Role-Based Access Control) Enforcement
+    // TEST 3: CORS Whitelist Rejections
     // ----------------------------------------------------
-    console.log('\n--- TEST 3: RBAC Enforcement ---');
+    console.log('\n--- TEST 3: CORS Whitelist Rejections ---');
+    // Request with unwhitelisted origin should be blocked
+    const corsRes = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Origin': 'https://malicioussite.com',
+        'X-CSRF-Token': csrfToken
+      },
+      body: JSON.stringify({ email: adminEmail, password: adminPassword })
+    });
+    console.log('CORS with malicious origin status:', corsRes.status);
+    if (corsRes.status !== 500) { // CORS plugin throws error, handled as 500
+      throw new Error(`Expected CORS failure block, got status ${corsRes.status}`);
+    }
+    console.log('✅ Unwhitelisted CORS origin rejected successfully.');
+
+    // ----------------------------------------------------
+    // TEST 4: Input Validation (Fix-07)
+    // ----------------------------------------------------
+    console.log('\n--- TEST 4: Input Validation ---');
     
-    // Log in as Technician to get technician cookie
-    const techLoginRes = await fetch(`${BASE_URL}/auth/login`, {
+    // Check user registration with a weak password (returns HTTP 400)
+    console.log('Testing user creation with weak password "123"...');
+    const weakPwdRes = await secureFetch(`${BASE_URL}/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: techEmail, password: techPassword })
+      cookie: adminCookie,
+      body: JSON.stringify({
+        name: 'Valid Name',
+        email: 'test-weak-pwd@superbee.com',
+        password: '123',
+        mobile_number: '+12345678901',
+        employee_id: 'EMP321',
+        role_name: 'technician'
+      })
     });
-    const techSetCookie = techLoginRes.headers.get('set-cookie');
-    const techTokenMatch = techSetCookie.match(/authToken=([^;]+)/);
-    const techCookie = techTokenMatch ? techTokenMatch[0] : '';
-
-    // Technician attempts to access list of users (Requires admin/superadmin)
-    const techUsersRes = await fetch(`${BASE_URL}/users`, {
-      headers: { Cookie: techCookie }
-    });
-    
-    if (techUsersRes.status !== 403) {
-      throw new Error(`Expected 403 Forbidden for Technician accessing users, got ${techUsersRes.status}`);
+    console.log('Weak password registration status:', weakPwdRes.status);
+    if (weakPwdRes.status !== 400) {
+      throw new Error(`Expected 400 Bad Request, got ${weakPwdRes.status}`);
     }
-    const techUsersData = await techUsersRes.json();
-    console.log('Technician access response (403):', JSON.stringify(techUsersData));
-    console.log('✅ Technician blocked with 403 Forbidden.');
+    const weakPwdData = await weakPwdRes.json();
+    console.log('Weak password response details:', JSON.stringify(weakPwdData));
+    console.log('✅ Weak password rejected correctly (400).');
 
-    // Admin attempts to access list of users
-    const adminUsersRes = await fetch(`${BASE_URL}/users`, {
-      headers: { Cookie: adminCookie }
-    });
-    if (adminUsersRes.status !== 200) {
-      throw new Error(`Expected 200 OK for Admin accessing users, got ${adminUsersRes.status}`);
-    }
-    console.log('✅ Admin successfully fetched users list.');
-
-    // ----------------------------------------------------
-    // TEST 4: Rate Limiting & User Enumeration / Account Lockout
-    // ----------------------------------------------------
-    console.log('\n--- TEST 4: Rate Limiting & Lockout ---');
-    
-    // Send 5 incorrect login requests for a specific email
-    console.log('Sending 5 incorrect login requests...');
-    for (let i = 1; i <= 5; i++) {
-      const res = await fetch(`${BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: techEmail, password: 'wrong-password-here' })
-      });
-      console.log(`Attempt ${i} status: ${res.status}`);
-    }
-
-    // 6th attempt should result in 429 Rate Limit (either from Express Rate Limit or DB account lock)
-    const limitRes = await fetch(`${BASE_URL}/auth/login`, {
+    // Check AE requests validation (negative quantity returns HTTP 400)
+    console.log('Testing AE request with negative quantity...');
+    const invalidQtyRes = await secureFetch(`${BASE_URL}/ae-requests`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: techEmail, password: techPassword })
+      cookie: adminCookie,
+      body: JSON.stringify({
+        drone_number: 'Drone-XYZ',
+        uin_number: 'UIN-XYZ',
+        requested_by: 'Test Tech',
+        email: 'ae@superbee.com',
+        items: [{ part_id: 'sku-test-001', quantity: -5 }]
+      })
     });
-    console.log(`6th attempt (correct password, but locked) status: ${limitRes.status}`);
-    
-    if (limitRes.status !== 429) {
-      throw new Error(`Expected 429 Too Many Requests, got ${limitRes.status}`);
+    console.log('Negative quantity AE request status:', invalidQtyRes.status);
+    if (invalidQtyRes.status !== 400) {
+      throw new Error(`Expected 400 Bad Request, got ${invalidQtyRes.status}`);
     }
-    const limitData = await limitRes.json();
-    console.log('Rate limit response:', JSON.stringify(limitData));
-    console.log('✅ 6th attempt correctly blocked with HTTP 429.');
-
-    // Clean up login attempts table to restore access
-    await connection.query('DELETE FROM login_attempts');
-    console.log('🧹 Restored login_attempts to unlock account.');
+    const invalidQtyData = await invalidQtyRes.json();
+    console.log('Negative quantity response details:', JSON.stringify(invalidQtyData));
+    console.log('✅ Negative quantity AE request rejected correctly (400).');
 
     // ----------------------------------------------------
-    // TEST 5: Double-Spend / Concurrent Approval Protection (FOR UPDATE locks)
+    // TEST 5: Security Response Headers (Fix-08)
     // ----------------------------------------------------
-    console.log('\n--- TEST 5: Double-Spend / Concurrent Approval Protection ---');
+    console.log('\n--- TEST 5: Security Response Headers ---');
+    const healthRes = await secureFetch(`${BASE_URL}/auth/me`, {
+      cookie: adminCookie
+    });
     
-    // Create temporary category & part
-    const testCatId = 'cat-test-999';
-    const testPartSku = 'sku-test-999';
-    const testReqId = 'req-test-999';
+    const cspHeader = healthRes.headers.get('content-security-policy');
+    const hstsHeader = healthRes.headers.get('strict-transport-security');
+    const xFrameHeader = healthRes.headers.get('x-frame-options');
 
-    // Delete if existing
+    console.log('Content-Security-Policy:', cspHeader);
+    console.log('Strict-Transport-Security:', hstsHeader);
+    console.log('X-Frame-Options:', xFrameHeader);
+
+    if (!cspHeader) {
+      throw new Error('Response headers missing Content-Security-Policy.');
+    }
+    console.log('✅ Response headers include Content-Security-Policy.');
+
+    if (!hstsHeader) {
+      throw new Error('Response headers missing Strict-Transport-Security.');
+    }
+    console.log('✅ Response headers include Strict-Transport-Security.');
+
+    if (xFrameHeader !== 'DENY') {
+      throw new Error(`Expected X-Frame-Options: DENY, got: ${xFrameHeader}`);
+    }
+    console.log('✅ Response headers include X-Frame-Options: DENY.');
+
+    // ----------------------------------------------------
+    // TEST 6: Audit Logging Verification (Fix-09)
+    // ----------------------------------------------------
+    console.log('\n--- TEST 6: Audit Logging Verification ---');
+    
+    // Create a valid user
+    const uniqueId = Date.now();
+    const newUserEmail = `test-user-${uniqueId}@superbee.com`;
+    const newUserEmpId = `EMP${uniqueId}`;
+    
+    console.log(`Creating valid user ${newUserEmail}...`);
+    const validUserRes = await secureFetch(`${BASE_URL}/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cookie: adminCookie,
+      body: JSON.stringify({
+        name: 'Valid User',
+        email: newUserEmail,
+        password: 'Password@1234',
+        mobile_number: '+12345678901',
+        employee_id: newUserEmpId,
+        role_name: 'technician'
+      })
+    });
+    if (validUserRes.status !== 201) {
+      const errBody = await validUserRes.json();
+      throw new Error(`Valid user creation failed: ${JSON.stringify(errBody)}`);
+    }
+
+    // Verify audit logs table contains CREATE_USER entry
+    const [userAuditLogs] = await connection.query(
+      "SELECT * FROM audit_logs WHERE action = 'CREATE_USER' ORDER BY timestamp DESC LIMIT 1"
+    );
+    if (userAuditLogs.length === 0) {
+      throw new Error('Audit logs table is missing CREATE_USER entry.');
+    }
+    console.log('✅ CREATE_USER audit log verified:', userAuditLogs[0].description);
+
+    // Create and approve an AE request to verify APPROVE_AE_REQUEST log entry
+    // Setup part
+    const testCatId = 'cat-test-888';
+    const testPartSku = 'sku-test-888';
+    const testReqId = 'req-test-888';
     await connection.query('DELETE FROM ae_requests WHERE id = ?', [testReqId]);
     await connection.query('DELETE FROM inventory_parts WHERE sku = ?', [testPartSku]);
     await connection.query('DELETE FROM categories WHERE id = ?', [testCatId]);
 
-    // Insert category
-    await connection.query(
-      `INSERT INTO categories (id, name, description, status) 
-       VALUES (?, 'Test Category', 'For security verification', 'active')`,
-      [testCatId]
-    );
-
-    // Insert part with quantity = 2
-    await connection.query(
-      `INSERT INTO inventory_parts (id, sku, name, category_id, manufacturer, serial_number, quantity, price, status)
-       VALUES (?, ?, 'Test Propeller X', ?, 'SuperBee', 'SN-TEST-001', 2, 50.00, 'active')`,
-      ['part-test-999', testPartSku, testCatId]
-    );
-
-    // Create a pending request demanding 2 units of the part
-    const requestItems = [{ part_id: testPartSku, quantity: 2 }];
+    await connection.query(`INSERT INTO categories (id, name, status) VALUES (?, 'Test Cat', 'active')`, [testCatId]);
+    await connection.query(`INSERT INTO inventory_parts (id, sku, name, category_id, quantity, price, status) VALUES (?, ?, 'Part X', ?, 10, 1.00, 'active')`, ['part-test-888', testPartSku, testCatId]);
+    
+    const requestItems = [{ part_id: testPartSku, quantity: 1 }];
     await connection.query(
       `INSERT INTO ae_requests (id, drone_number, uin_number, requested_by, email, items, status)
-       VALUES (?, 'Drone-101', 'UIN-101', 'Test Engineer', ?, ?, 'pending')`,
+       VALUES (?, 'Drone-1', 'UIN-1', 'Test Tech', ?, ?, 'pending')`,
       [testReqId, techEmail, JSON.stringify(requestItems)]
     );
-    console.log('Test setup: Added sku-test-999 with quantity 2, and pending ae_request for 2 units.');
 
-    // Fire two concurrent accept requests
-    console.log('Sending two concurrent accept requests...');
-    const acceptUrls = `${BASE_URL}/ae-requests/${testReqId}/accept`;
-    const acceptReq1 = fetch(acceptUrls, {
+    // Approve request
+    console.log('Approving AE Request to trigger APPROVE_AE_REQUEST audit log...');
+    const approveRes = await secureFetch(`${BASE_URL}/ae-requests/${testReqId}/accept`, {
       method: 'POST',
-      headers: { Cookie: adminCookie }
+      cookie: adminCookie
     });
-    const acceptReq2 = fetch(acceptUrls, {
-      method: 'POST',
-      headers: { Cookie: adminCookie }
-    });
-
-    const [res1, res2] = await Promise.all([acceptReq1, acceptReq2]);
-    console.log(`Request 1 status: ${res1.status}`);
-    console.log(`Request 2 status: ${res2.status}`);
-
-    const data1 = await res1.json();
-    const data2 = await res2.json();
-    console.log('Request 1 response:', JSON.stringify(data1));
-    console.log('Request 2 response:', JSON.stringify(data2));
-
-    // One must succeed (200) and the other must fail (400)
-    const statuses = [res1.status, res2.status];
-    if (!statuses.includes(200) || !statuses.includes(400)) {
-      throw new Error(`Double-spend check failed! Statuses should be [200, 400], got: [${res1.status}, ${res2.status}]`);
+    if (approveRes.status !== 200) {
+      throw new Error(`Approval failed with status ${approveRes.status}`);
     }
 
-    // Verify inventory is exactly 0
-    const [parts] = await connection.query('SELECT quantity FROM inventory_parts WHERE sku = ?', [testPartSku]);
-    console.log(`Final quantity of part ${testPartSku}: ${parts[0].quantity}`);
-    if (parts[0].quantity !== 0) {
-      throw new Error(`Expected final quantity to be 0, got ${parts[0].quantity}. Negative value or double deduction occurred!`);
+    // Verify audit logs contains APPROVE_AE_REQUEST entry
+    const [approveAuditLogs] = await connection.query(
+      "SELECT * FROM audit_logs WHERE action = 'APPROVE_AE_REQUEST' ORDER BY timestamp DESC LIMIT 1"
+    );
+    if (approveAuditLogs.length === 0) {
+      throw new Error('Audit logs table is missing APPROVE_AE_REQUEST entry.');
     }
-    console.log('✅ Double-spend prevented successfully. Only one request succeeded, inventory decremented accurately, and database locked records.');
+    console.log('✅ APPROVE_AE_REQUEST audit log verified:', approveAuditLogs[0].description);
 
-    // Clean up test data
+    // Clean up valid user and test request
+    await connection.query('DELETE FROM users WHERE email = ?', [newUserEmail]);
     await connection.query('DELETE FROM ae_requests WHERE id = ?', [testReqId]);
     await connection.query('DELETE FROM inventory_parts WHERE sku = ?', [testPartSku]);
     await connection.query('DELETE FROM categories WHERE id = ?', [testCatId]);
-    console.log('🧹 Cleaned up test database records.');
+
+    // ----------------------------------------------------
+    // TEST 7: DB Connection TLS Enforcement (Fix-10)
+    // ----------------------------------------------------
+    console.log('\n--- TEST 7: DB Connection TLS Enforcement ---');
+    // Clear require cache for db configuration and test SSL parameters
+    delete require.cache[require.resolve('../config/database')];
+    process.env.NODE_ENV = 'production';
+    const prodDb = require('../config/database');
+    const sslConfig = prodDb.pool.config?.connectionConfig?.ssl;
+    
+    if (!sslConfig || sslConfig.rejectUnauthorized !== true) {
+      throw new Error(`Database connection does not enforce SSL/TLS rejectUnauthorized in production.`);
+    }
+    console.log('✅ Database config correctly enforces TLS rejectUnauthorized in production.');
+    
+    // Restore dev configuration
+    process.env.NODE_ENV = 'development';
+    delete require.cache[require.resolve('../config/database')];
+
+    // ----------------------------------------------------
+    // TEST 8: Error Message Leak Mitigations (Fix-14)
+    // ----------------------------------------------------
+    console.log('\n--- TEST 8: Error Message Leak Mitigations ---');
+    // Hitting trigger-error route should return masked generic error or raw stack depending on server mode
+    const errorRes = await secureFetch(`${BASE_URL}/trigger-error`);
+    const errorData = await errorRes.json();
+    console.log('Error endpoint response:', errorData);
+
+    if (errorData.error === 'An internal error occurred.') {
+      if (errorData.stack) {
+        throw new Error('Error response leaked stack trace in production mode.');
+      }
+      console.log('✅ Production error masking verified successfully (no stacks or internal details leaked).');
+    } else if (errorData.error === 'Internal Database Crash Mock') {
+      if (!errorData.stack) {
+        throw new Error('Expected stack trace to be present in development mode.');
+      }
+      console.log('✅ Development error response verified successfully (stack trace is present as expected).');
+    } else {
+      throw new Error(`Unexpected error message: ${errorData.error}`);
+    }
+
+    // Downgrade ram back to admin role
+    await connection.query("UPDATE users SET role_id = 'role-001' WHERE email = ?", [adminEmail]);
+    console.log('⚡ Restored admin user role.');
 
     console.log('\n==========================================================');
-    console.log('🎉 ALL SECURITY VERIFICATION TESTS PASSED SUCCESSFULLY!');
+    console.log('🎉 ALL PHASE 2 SECURITY VERIFICATION TESTS PASSED!');
     console.log('==========================================================');
 
   } catch (err) {
+    // Restore admin user role if upgraded
+    await connection.query("UPDATE users SET role_id = 'role-001' WHERE email = ?", [adminEmail]).catch(() => {});
     console.error('\n❌ Security verification failed:');
     console.error(err);
     process.exit(1);

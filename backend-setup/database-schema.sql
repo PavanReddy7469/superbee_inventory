@@ -311,6 +311,23 @@ CREATE TABLE IF NOT EXISTS login_attempts (
 ) ENGINE=InnoDB;
 
 -- ============================================
+-- AUDIT LOGS TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  user_id         VARCHAR(36),
+  action          VARCHAR(100) NOT NULL,
+  target_resource VARCHAR(100),
+  resource_id     VARCHAR(36),
+  description     TEXT,
+  ip_address      VARCHAR(45),
+  user_agent      TEXT,
+  timestamp       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_timestamp   (timestamp),
+  INDEX idx_user_action (user_id, action)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
 -- INDEXES FOR PERFORMANCE
 -- ============================================
 

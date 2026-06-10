@@ -1,5 +1,6 @@
 const db = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+const auditLog = require('../middleware/auditLog');
 
 // Get all inventory parts
 exports.getAllParts = async (req, res) => {
@@ -58,6 +59,9 @@ exports.createPart = async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [id, sku, name, category_id, manufacturer, serial_number, quantity || 0, price || 0, status || 'active', created_by]);
 
+    // FIX-09: Log part creation to database audit trail
+    await auditLog(db, req, 'CREATE_INVENTORY_PART', 'inventory_parts', id, `Inventory part ${sku} created`);
+
     // Fetch the created part
     const [parts] = await db.query(`
       SELECT ip.*, c.name as category_name
@@ -97,6 +101,9 @@ exports.updatePart = async (req, res) => {
       WHERE id = ?
     `, [name, category_id, manufacturer, serial_number, quantity, price, status, id]);
 
+    // FIX-09: Log part update to database audit trail
+    await auditLog(db, req, 'UPDATE_INVENTORY_PART', 'inventory_parts', id, `Inventory part updated`);
+
     // Fetch updated part
     const [parts] = await db.query(`
       SELECT ip.*, c.name as category_name
@@ -125,6 +132,9 @@ exports.deletePart = async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Part not found' });
     }
+
+    // FIX-09: Log part deletion to database audit trail
+    await auditLog(db, req, 'DELETE_INVENTORY_PART', 'inventory_parts', id, `Inventory part deleted`);
 
     res.json({ message: 'Part deleted successfully' });
   } catch (error) {

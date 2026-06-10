@@ -1,5 +1,25 @@
 const pool = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+const auditLog = require('../middleware/auditLog');
+
+// FIX-07: Validate AE requests items structure to prevent format injections before database execution
+exports.validateAERequestItems = (req, res, next) => {
+  const { items } = req.body;
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Items must be a non-empty array' });
+  }
+  for (const item of items) {
+    if (!item.part_id || typeof item.part_id !== 'string') {
+      return res.status(400).json({ error: 'Each item must have a valid part_id (string)' });
+    }
+    const qty = Number(item.quantity);
+    if (item.quantity === undefined || item.quantity === null || !Number.isInteger(qty) || qty <= 0) {
+      return res.status(400).json({ error: 'Each item must have a positive integer quantity' });
+    }
+  }
+  next();
+};
+
 
 // Get all AE requests
 exports.getAllRequests = async (req, res) => {
@@ -116,6 +136,9 @@ exports.acceptRequest = async (req, res) => {
     
     await connection.commit();
     
+    // FIX-09: Log request approval to database audit trail
+    await auditLog(pool, req, 'APPROVE_AE_REQUEST', 'ae_requests', id, `AE request approved for drone ${request.drone_number}`);
+    
     res.json({ message: 'Request accepted and inventory updated successfully' });
   } catch (error) {
     await connection.rollback();
@@ -139,6 +162,9 @@ exports.rejectRequest = async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Request not found or already processed' });
     }
+    
+    // FIX-09: Log request rejection to database audit trail
+    await auditLog(pool, req, 'REJECT_AE_REQUEST', 'ae_requests', id, `AE request rejected`);
     
     res.json({ message: 'Request rejected successfully' });
   } catch (error) {
@@ -173,6 +199,9 @@ exports.withdrawRequest = async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Request not found or already processed' });
     }
+    
+    // FIX-09: Log request withdrawal to database audit trail
+    await auditLog(pool, req, 'WITHDRAW_AE_REQUEST', 'ae_requests', id, `AE request withdrawn`);
     
     res.json({ message: 'Request withdrawn successfully' });
   } catch (error) {

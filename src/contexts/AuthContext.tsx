@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { authAPI } from '../lib/api';
+import { authAPI, fetchCsrfToken } from '../lib/api';
 
 export type UserRole = 'superadmin' | 'admin' | 'technician';
 
@@ -41,6 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // FIX-03: Restore session from secure httpOnly cookie on initialization
     const checkSession = async () => {
       try {
+        // FIX-15: Fetch CSRF token on app init before recovering profile session
+        await fetchCsrfToken();
+        
         const response = await authAPI.getMe();
         const userData = response.data;
         setUser({ id: userData.id, email: userData.email });
