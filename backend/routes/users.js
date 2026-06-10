@@ -13,11 +13,11 @@ router.use(authenticateToken);
 router.get('/', authorizeRoles('admin', 'superadmin'), usersController.getAllUsers);
 
 // Create new user with validation
-// FIX-04: Only Superadmin is authorized to create new users to prevent unauthorized privilege escalation
+// FIX-04: Only Admin and Superadmin are authorized to create new users (with escalation check in controller)
 // FIX-07: Apply validation rules to name, email, password, mobile_number, employee_id, and role_name
 router.post(
   '/', 
-  authorizeRoles('superadmin'), 
+  authorizeRoles('admin', 'superadmin'), 
   [
     body('name')
       .isString().withMessage('Name must be a string')
@@ -37,7 +37,7 @@ router.post(
         return true;
       }),
     body('password')
-      .isLength({ min: 12 }).withMessage('Password must be at least 12 characters')
+      .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
       .custom(value => {
         if (value) {
           if (!/[A-Z]/.test(value)) throw new Error('Password must contain at least one uppercase letter');

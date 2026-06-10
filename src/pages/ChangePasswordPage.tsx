@@ -16,7 +16,7 @@ export default function ChangePasswordPage() {
   const navigate = useNavigate();
 
   // Password rules validation
-  const hasMinLength = newPassword.length >= 12;
+  const hasMinLength = newPassword.length >= 8;
   const hasUpper = /[A-Z]/.test(newPassword);
   const hasLower = /[a-z]/.test(newPassword);
   const hasDigit = /[0-9]/.test(newPassword);
@@ -62,7 +62,10 @@ export default function ChangePasswordPage() {
         }
       }, 2000);
     } catch (err: any) {
-      setError(err.message || 'Failed to change password. Please verify your current password.');
+      // Extract actual error from backend response
+      const data = err.response?.data;
+      const msg = data?.error || (data?.errors?.map((e: any) => e.msg).join(', ')) || err.message || 'Failed to change password.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -173,7 +176,7 @@ export default function ChangePasswordPage() {
                 <p className="font-semibold text-slate-400 mb-1">Password requirements:</p>
                 <div className="flex items-center gap-2">
                   {hasMinLength ? <Check className="h-3.5 w-3.5 text-green-400" /> : <X className="h-3.5 w-3.5 text-slate-500" />}
-                  <span className={hasMinLength ? 'text-green-400' : 'text-slate-400'}>At least 12 characters</span>
+                  <span className={hasMinLength ? 'text-green-400' : 'text-slate-400'}>At least 8 characters</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {hasUpper ? <Check className="h-3.5 w-3.5 text-green-400" /> : <X className="h-3.5 w-3.5 text-slate-500" />}

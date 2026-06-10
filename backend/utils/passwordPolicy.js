@@ -2,7 +2,7 @@ const PasswordValidator = require('password-validator');
 
 // FIX-11: Setup strict password validation schema to prevent weak user passwords
 const schema = new PasswordValidator()
-  .min(12).max(128)       // Minimum 12, maximum 128 characters
+  .min(8).max(128)        // Minimum 8, maximum 128 characters
   .uppercase()            // Must have uppercase letters
   .lowercase()            // Must have lowercase letters
   .digits(1)              // Must have at least 1 digit

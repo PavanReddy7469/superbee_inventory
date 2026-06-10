@@ -52,8 +52,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     // FIX-03: Handle 401 Unauthorized globally by redirecting to login page
+    // Only redirect if NOT already on login/home page to prevent infinite redirect loops
     if (error.response?.status === 401) {
-      window.location.href = '/login';
+      const path = window.location.pathname;
+      if (path !== '/login' && path !== '/') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

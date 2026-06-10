@@ -47,7 +47,8 @@ export default function AssemblyEngineerDashboard() {
         try {
             // Fetch AE requests from API
             const reqsResponse = await aeRequestsAPI.getAll();
-            const allRequests: AeRequest[] = reqsResponse.data;
+            // FIX-17: Backend returns paginated response { data: [...], total, page, limit, totalPages }
+            const allRequests: AeRequest[] = reqsResponse.data.data || reqsResponse.data;
             
             // Filter to show only current user's requests
             const myReqs = allRequests.filter(r => 
@@ -57,9 +58,10 @@ export default function AssemblyEngineerDashboard() {
 
             // Fetch inventory parts
             const partsResponse = await inventoryAPI.getAll();
-            const parts = partsResponse.data;
-            setInventoryCount(parts.length);
-            setLowStockCount(parts.filter((p: any) => Number(p.quantity) <= 5).length);
+            // FIX-17: Backend returns paginated response { data: [...], total, page, limit, totalPages }
+            const parts = partsResponse.data.data || partsResponse.data;
+            setInventoryCount(Array.isArray(parts) ? parts.length : 0);
+            setLowStockCount(Array.isArray(parts) ? parts.filter((p: any) => Number(p.quantity) <= 5).length : 0);
 
             // Fetch dashboard stats for drone count
             try {

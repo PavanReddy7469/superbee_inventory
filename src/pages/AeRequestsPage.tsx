@@ -29,6 +29,41 @@ export default function AeRequestsPage() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'withdrawn'>('pending');
   const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, approved: 0, rejected: 0, withdrawn: 0 });
 
+  // Custom modal configuration
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalConfig, setModalConfig] = useState<{
+    title: string;
+    message: string;
+    confirmText: string;
+    cancelText: string;
+    onConfirm: () => void;
+    type: 'confirm' | 'success' | 'error';
+  } | null>(null);
+
+  const showCustomConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setModalConfig({
+      title,
+      message,
+      confirmText: 'Confirm',
+      cancelText: 'Cancel',
+      onConfirm,
+      type: 'confirm'
+    });
+    setModalOpen(true);
+  };
+
+  const showCustomAlert = (title: string, message: string, type: 'success' | 'error' = 'success') => {
+    setModalConfig({
+      title,
+      message,
+      confirmText: 'OK',
+      cancelText: '',
+      onConfirm: () => setModalOpen(false),
+      type
+    });
+    setModalOpen(true);
+  };
+
   useEffect(() => {
     fetchRequests();
   }, []);
@@ -40,7 +75,8 @@ export default function AeRequestsPage() {
   const fetchRequests = async () => {
     try {
       const response = await aeRequestsAPI.getAll();
-      const requestsData = response.data;
+      // FIX-17: Backend returns paginated response { data: [...], total, page, limit, totalPages }
+      const requestsData = response.data.data || response.data;
       setRequests(requestsData);
 
       // Calculate stats
@@ -76,52 +112,78 @@ export default function AeRequestsPage() {
     // For example: SendGrid, AWS SES, or your backend API
   };
 
-  const acceptRequest = async (req: AeRequest) => {
-    if (!confirm(`Accept this request from ${req.requested_by}?\nThis will automatically decrease inventory parts.`)) return;
+  const acceptRequest = (req: AeRequest) => {
+    showCustomConfirm(
+      'Approve Request',
+      `Accept this request from ${req.requested_by}?\nThis will automatically decrease inventory parts.`,
+      async () => {
+        try {
+          setLoadingId(req.id);
+          setModalOpen(false);
 
-    try {
-      setLoadingId(req.id);
+          // Call API to accept request (backend handles inventory decrement)
+          await aeRequestsAPI.accept(req.id);
 
-      // Call API to accept request (backend handles inventory decrement)
-      await aeRequestsAPI.accept(req.id);
+          // Send email notification
+          if (req.email) {
+            await sendEmail(req.email, 'approved', req);
+          }
 
-      // Send email notification
-      if (req.email) {
-        await sendEmail(req.email, 'approved', req);
+          await fetchRequests();
+          showCustomAlert(
+            'Request Approved',
+            '✅ Request approved!\n✓ Inventory updated\nℹ️ Email notification logged (mocked)',
+            'success'
+          );
+        } catch (err: any) {
+          console.error('Error accepting request:', err);
+          showCustomAlert(
+            'Approval Failed',
+            err.response?.data?.error || err.message || 'Failed to accept request. Please try again.',
+            'error'
+          );
+        } finally {
+          setLoadingId(null);
+        }
       }
-
-      await fetchRequests();
-      alert('✅ Request approved!\n✓ Inventory updated\nℹ️ Email notification logged (mocked)');
-    } catch (err) {
-      console.error('Error accepting request:', err);
-      alert('❌ Failed to accept request. Please try again.');
-    } finally {
-      setLoadingId(null);
-    }
+    );
   };
 
-  const rejectRequest = async (req: AeRequest) => {
-    if (!confirm(`Reject this request from ${req.requested_by}?`)) return;
+  const rejectRequest = (req: AeRequest) => {
+    showCustomConfirm(
+      'Decline Request',
+      `Reject this request from ${req.requested_by}?`,
+      async () => {
+        try {
+          setLoadingId(req.id);
+          setModalOpen(false);
 
-    try {
-      setLoadingId(req.id);
+          // Call API to reject request
+          await aeRequestsAPI.reject(req.id);
 
-      // Call API to reject request
-      await aeRequestsAPI.reject(req.id);
+          // Send email notification
+          if (req.email) {
+            await sendEmail(req.email, 'rejected', req);
+          }
 
-      // Send email notification
-      if (req.email) {
-        await sendEmail(req.email, 'rejected', req);
+          await fetchRequests();
+          showCustomAlert(
+            'Request Rejected',
+            '❌ Request rejected!\nℹ️ Email notification logged (mocked)',
+            'success'
+          );
+        } catch (err: any) {
+          console.error('Error rejecting request:', err);
+          showCustomAlert(
+            'Rejection Failed',
+            err.response?.data?.error || err.message || 'Failed to reject request. Please try again.',
+            'error'
+          );
+        } finally {
+          setLoadingId(null);
+        }
       }
-
-      await fetchRequests();
-      alert('❌ Request rejected!\nℹ️ Email notification logged (mocked)');
-    } catch (err) {
-      console.error('Error rejecting request:', err);
-      alert('❌ Failed to reject request. Please try again.');
-    } finally {
-      setLoadingId(null);
-    }
+    );
   };
 
   return (
@@ -374,6 +436,67 @@ export default function AeRequestsPage() {
           </div>
         )}
       </div>
+
+      {/* ══════════════════════════
+          CUSTOM MODAL
+      ══════════════════════════ */}
+      {modalOpen && modalConfig && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
+            {modalConfig.type !== 'confirm' && (
+              <button onClick={() => setModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700">
+                <XCircle className="h-5 w-5" />
+              </button>
+            )}
+
+            <div className="flex flex-col items-center text-center mb-5">
+              <div className={`p-4 rounded-full mb-3 ${
+                modalConfig.type === 'success' 
+                  ? 'bg-green-100 text-green-600' 
+                  : modalConfig.type === 'error' 
+                    ? 'bg-red-100 text-red-600' 
+                    : 'bg-amber-100 text-amber-600'
+              }`}>
+                {modalConfig.type === 'success' && <CheckCircle className="h-8 w-8" />}
+                {modalConfig.type === 'error' && <XCircle className="h-8 w-8" />}
+                {modalConfig.type === 'confirm' && <Clock className="h-8 w-8" />}
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 mb-1">{modalConfig.title}</h3>
+              <p className="text-slate-500 text-sm whitespace-pre-line">{modalConfig.message}</p>
+            </div>
+
+            <div className="flex gap-3">
+              {modalConfig.type === 'confirm' ? (
+                <>
+                  <button
+                    onClick={modalConfig.onConfirm}
+                    className="flex-1 bg-indigo-600 text-white px-4 py-2.5 rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm"
+                  >
+                    {modalConfig.confirmText}
+                  </button>
+                  <button
+                    onClick={() => setModalOpen(false)}
+                    className="flex-1 bg-slate-100 text-slate-700 px-4 py-2.5 rounded-lg hover:bg-slate-200 transition-colors font-medium text-sm"
+                  >
+                    {modalConfig.cancelText}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setModalOpen(false)}
+                  className={`w-full px-4 py-2.5 rounded-lg text-white font-medium text-sm transition-colors ${
+                    modalConfig.type === 'success' 
+                      ? 'bg-green-600 hover:bg-green-700' 
+                      : 'bg-red-600 hover:bg-red-700'
+                  }`}
+                >
+                  {modalConfig.confirmText}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

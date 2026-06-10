@@ -43,7 +43,8 @@ export default function BuyersPage() {
   const fetchUsers = async () => {
     try {
       const response = await usersAPI.getAll(userType);
-      setUsers(response.data);
+      // FIX-17: Backend returns paginated response { data: [...], total, page, limit, totalPages }
+      setUsers(response.data.data || response.data);
     } catch (error) {
       console.error('Error fetching users:', error);
     }

@@ -72,10 +72,11 @@ export default function InventoryPage() {
   const fetchParts = async () => {
     try {
       const partsResponse = await inventoryAPI.getAll();
-      const partsData = partsResponse.data;
+      // FIX-17: Backend returns paginated response { data: [...], total, page, limit, totalPages }
+      const partsData = partsResponse.data.data || partsResponse.data;
 
       // Map category names to parts and ensure numeric fields are numbers
-      const partsWithCategories = partsData.map((part: any) => ({
+      const partsWithCategories = (Array.isArray(partsData) ? partsData : []).map((part: any) => ({
         ...part,
         price: Number(part.price) || 0,
         quantity: Number(part.quantity) || 0,

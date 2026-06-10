@@ -49,7 +49,7 @@ router.post(
   [
     body('oldPassword').notEmpty().withMessage('Old password is required'),
     body('newPassword')
-      .isLength({ min: 12 }).withMessage('New password must be at least 12 characters')
+      .isLength({ min: 8 }).withMessage('New password must be at least 8 characters')
       .custom(value => {
         if (value) {
           if (!/[A-Z]/.test(value)) throw new Error('New password must contain at least one uppercase letter');
