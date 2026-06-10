@@ -8,24 +8,16 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-});
-
-// Add token to requests
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+  // FIX-03: Enable cookies/credentials automatically on all Axios API requests
+  withCredentials: true,
 });
 
 // Handle token expiration
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // FIX-03: Handle 401 Unauthorized globally by redirecting to login page
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -39,6 +31,8 @@ export const authAPI = {
   login: (email: string, password: string) =>
     api.post('/auth/login', { email, password }),
   getProfile: () => api.get('/auth/profile'),
+  // FIX-03: Expose getMe to check session recovery using HttpOnly cookie authentication
+  getMe: () => api.get('/auth/me'),
   logout: () => api.post('/auth/logout'),
   changePassword: (oldPassword: string, newPassword: string) =>
     api.post('/auth/change-password', { oldPassword, newPassword }),

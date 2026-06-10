@@ -59,7 +59,8 @@ exports.acceptRequest = async (req, res) => {
     const { id } = req.params;
     
     // Get request details
-    const [requests] = await connection.query('SELECT * FROM ae_requests WHERE id = ?', [id]);
+    // FIX-05: Lock the request row within the transaction using FOR UPDATE to prevent concurrent race conditions
+    const [requests] = await connection.query('SELECT * FROM ae_requests WHERE id = ? FOR UPDATE', [id]);
     
     if (requests.length === 0) {
       await connection.rollback();
@@ -68,9 +69,10 @@ exports.acceptRequest = async (req, res) => {
     
     const request = requests[0];
     
+    // FIX-05: Enforce that request status is strictly 'pending' to prevent double-spend resource decrement attacks
     if (request.status !== 'pending') {
       await connection.rollback();
-      return res.status(400).json({ error: 'Request is not pending' });
+      return res.status(400).json({ error: `Request has already been processed (status: ${request.status})` });
     }
     
     // Parse items
@@ -78,8 +80,9 @@ exports.acceptRequest = async (req, res) => {
     
     // Decrement inventory for each item
     for (const item of items) {
+      // FIX-05: Acquire row-level locks on the target parts to prevent other transactions from modifying them simultaneously
       const [parts] = await connection.query(
-        'SELECT quantity FROM inventory_parts WHERE sku = ?',
+        'SELECT quantity FROM inventory_parts WHERE sku = ? FOR UPDATE',
         [item.part_id]
       );
       
@@ -88,7 +91,10 @@ exports.acceptRequest = async (req, res) => {
         return res.status(400).json({ error: `Part ${item.part_id} not found` });
       }
       
-      if (parts[0].quantity < item.quantity) {
+      const newQuantity = parts[0].quantity - item.quantity;
+      
+      // FIX-05: Transaction safety check: Rollback if decrement drops quantity below zero
+      if (newQuantity < 0) {
         await connection.rollback();
         return res.status(400).json({ 
           error: `Insufficient quantity for part ${item.part_id}. Available: ${parts[0].quantity}, Requested: ${item.quantity}` 
@@ -97,8 +103,8 @@ exports.acceptRequest = async (req, res) => {
       
       // Update inventory
       await connection.query(
-        'UPDATE inventory_parts SET quantity = quantity - ? WHERE sku = ?',
-        [item.quantity, item.part_id]
+        'UPDATE inventory_parts SET quantity = ? WHERE sku = ?',
+        [newQuantity, item.part_id]
       );
     }
     
@@ -145,6 +151,19 @@ exports.rejectRequest = async (req, res) => {
 exports.withdrawRequest = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Get request details
+    const [requests] = await pool.query('SELECT * FROM ae_requests WHERE id = ?', [id]);
+    if (requests.length === 0) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    const request = requests[0];
+
+    // FIX-05: Prevent unauthorized request withdrawal. A normal technician can only withdraw their own requests.
+    if (request.email !== req.user.email && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Access denied. You can only withdraw your own requests.' });
+    }
     
     const [result] = await pool.query(
       'UPDATE ae_requests SET status = ?, updated_at = NOW() WHERE id = ? AND status = "pending"',

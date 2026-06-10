@@ -35,6 +35,7 @@ CREATE TABLE users (
   designation VARCHAR(100),
   role_id VARCHAR(36) NOT NULL,
   is_active BOOLEAN DEFAULT TRUE,
+  must_change_password BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT,
@@ -294,6 +295,20 @@ BEGIN
 END //
 
 DELIMITER ;
+
+-- ============================================
+-- LOGIN ATTEMPTS AUDIT TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  email        VARCHAR(255),
+  ip_address   VARCHAR(45),
+  user_agent   TEXT,
+  success      BOOLEAN DEFAULT FALSE,
+  attempt_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_email_time (email, attempt_time),
+  INDEX idx_ip_time    (ip_address, attempt_time)
+) ENGINE=InnoDB;
 
 -- ============================================
 -- INDEXES FOR PERFORMANCE

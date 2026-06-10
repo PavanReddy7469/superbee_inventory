@@ -14,6 +14,7 @@ export interface UserProfile {
   is_active: boolean;
   created_at: string;
   updated_at?: string;
+  must_change_password?: boolean;
   role?: {
     name: UserRole;
     level: number;
@@ -24,7 +25,7 @@ interface AuthContextType {
   user: any | null;
   profile: UserProfile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<{ requiresPasswordChange: boolean }>;
   signOut: () => Promise<void>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
 }
@@ -37,35 +38,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-
-    if (token && savedUser) {
+    // FIX-03: Restore session from secure httpOnly cookie on initialization
+    const checkSession = async () => {
       try {
-        const parsedUser = JSON.parse(savedUser);
-        setUser({ id: parsedUser.id, email: parsedUser.email });
-        setProfile(parsedUser);
+        const response = await authAPI.getMe();
+        const userData = response.data;
+        setUser({ id: userData.id, email: userData.email });
+        setProfile(userData);
       } catch (error) {
-        console.error('Error parsing saved user:', error);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        // Not authenticated
+        setUser(null);
+        setProfile(null);
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+
+    checkSession();
   }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
       const response = await authAPI.login(email, password);
-      const { token, user: userData } = response.data;
-
-      // Save token and user data
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(userData));
+      // FIX-03: Do not receive or store token in localStorage; only parse user data and requiresPasswordChange flag (XSS Mitigation)
+      const { user: userData, requiresPasswordChange } = response.data;
 
       setUser({ id: userData.id, email: userData.email });
       setProfile(userData);
+      
+      return { requiresPasswordChange: !!requiresPasswordChange };
     } catch (error: any) {
       console.error('Login error:', error);
       throw new Error(error.response?.data?.error || 'Login failed');
@@ -78,8 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      // FIX-03: Remove local storage session cleanup since cookies are cleared by the backend
       setUser(null);
       setProfile(null);
     }
@@ -87,6 +87,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const changePassword = async (oldPassword: string, newPassword: string) => {
     await authAPI.changePassword(oldPassword, newPassword);
+    // After changing password, update our profile must_change_password flag
+    if (profile) {
+      setProfile({
+        ...profile,
+        must_change_password: false
+      });
+    }
   };
 
   return (

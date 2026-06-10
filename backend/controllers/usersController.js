@@ -56,6 +56,16 @@ exports.createUser = async (req, res) => {
     if (!email.endsWith('@superbee.com')) {
       return res.status(400).json({ error: 'Email must be from @superbee.com domain' });
     }
+
+    // FIX-02: Enforce password requirement on creation, blocking empty passwords/default fallback
+    if (!password || password.trim().length === 0) {
+      return res.status(400).json({ error: 'Password is required' });
+    }
+
+    // FIX-04: Prevent non-superadmins from escalating privilege by creating a superadmin user
+    if (role_name === 'superadmin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Only superadmins can create superadmin accounts' });
+    }
     
     // Check if user already exists
     const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
@@ -72,13 +82,14 @@ exports.createUser = async (req, res) => {
     const roleId = roleResult[0].id;
     
     // Hash password
-    const hashedPassword = await bcrypt.hash(password || 'Superbee@123', 10);
+    // FIX-02: Increase bcrypt rounds from 10 to 12 for stronger password hashing resistance
+    const hashedPassword = await bcrypt.hash(password, 12);
     
     // Create user
     const userId = uuidv4();
     await pool.query(
-      `INSERT INTO users (id, role_id, name, email, password_hash, mobile_number, employee_id, designation, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      `INSERT INTO users (id, role_id, name, email, password_hash, mobile_number, employee_id, designation, is_active, must_change_password)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1)`,
       [userId, roleId, name, email, hashedPassword, mobile_number, employee_id, designation]
     );
     
@@ -132,6 +143,32 @@ exports.updateUserStatus = async (req, res) => {
 exports.deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // FIX-04: Prevent user from deleting their own account (accidental lockout mitigation)
+    if (id === req.user.id) {
+      return res.status(403).json({ error: 'You cannot delete your own account' });
+    }
+
+    // FIX-04: Prevent deleting the last superadmin to ensure system recovery capabilities remain intact
+    const [targetUser] = await pool.query(`
+      SELECT u.email, r.name as role_name 
+      FROM users u 
+      LEFT JOIN roles r ON u.role_id = r.id 
+      WHERE u.id = ?
+    `, [id]);
+
+    if (targetUser.length > 0 && targetUser[0].role_name === 'superadmin') {
+      const [superadmins] = await pool.query(`
+        SELECT COUNT(*) as count 
+        FROM users u 
+        LEFT JOIN roles r ON u.role_id = r.id 
+        WHERE r.name = 'superadmin'
+      `);
+
+      if (superadmins[0].count <= 1) {
+        return res.status(403).json({ error: 'Cannot delete the last superadmin account' });
+      }
+    }
     
     await pool.query('DELETE FROM users WHERE id = ?', [id]);
     

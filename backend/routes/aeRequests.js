@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const aeRequestsController = require('../controllers/aeRequestsController');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
 // All routes require authentication
 router.use(authenticateToken);
@@ -13,12 +13,15 @@ router.get('/', aeRequestsController.getAllRequests);
 router.post('/', aeRequestsController.createRequest);
 
 // Accept AE request
-router.post('/:id/accept', aeRequestsController.acceptRequest);
+// FIX-05: Restrict accepting AE requests strictly to admin and superadmin roles
+router.post('/:id/accept', authorizeRoles('admin', 'superadmin'), aeRequestsController.acceptRequest);
 
 // Reject AE request
-router.post('/:id/reject', aeRequestsController.rejectRequest);
+// FIX-05: Restrict rejecting AE requests strictly to admin and superadmin roles
+router.post('/:id/reject', authorizeRoles('admin', 'superadmin'), aeRequestsController.rejectRequest);
 
 // Withdraw AE request
+// FIX-05: Technicians can withdraw, authorization is checked inside controller based on ownership
 router.post('/:id/withdraw', aeRequestsController.withdrawRequest);
 
 module.exports = router;

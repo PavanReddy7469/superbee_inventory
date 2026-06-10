@@ -1,5 +1,8 @@
 const bcrypt = require('bcrypt');
 const mysql = require('mysql2/promise');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 async function initUsers() {
@@ -14,35 +17,38 @@ async function initUsers() {
 
     console.log('✅ Connected to database');
 
-    // Hash passwords
-    const adminPassword = await bcrypt.hash('123456', 10);
-    const techPassword = await bcrypt.hash('123456', 10);
+    // FIX-02: Generate strong random default credentials rather than weak hardcoded "123456"
+    const adminPw = crypto.randomBytes(16).toString('hex');
+    const techPw = crypto.randomBytes(16).toString('hex');
+
+    // FIX-02: Increase bcrypt rounds from 10 to 12 for stronger work factor
+    const adminPassword = await bcrypt.hash(adminPw, 12);
+    const techPassword = await bcrypt.hash(techPw, 12);
 
     // Delete existing users
     await connection.query('DELETE FROM users');
     console.log('🗑️  Cleared existing users');
 
-    // Insert admin user
+    // Insert admin user (must_change_password defaults to TRUE)
     await connection.query(`
-      INSERT INTO users (id, email, password_hash, name, employee_id, designation, role_id, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `, ['user-admin-001', 'ram@superbee.com', adminPassword, 'Ram', 'EMP001', 'Administrator', 'role-001', true]);
+      INSERT INTO users (id, email, password_hash, name, employee_id, designation, role_id, is_active, must_change_password)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, ['user-admin-001', 'ram@superbee.com', adminPassword, 'Ram', 'EMP001', 'Administrator', 'role-001', true, true]);
 
-    console.log('✅ Created admin user: ram@superbee.com / 123456');
-
-    // Insert technician user
+    // Insert technician user (must_change_password defaults to TRUE)
     await connection.query(`
-      INSERT INTO users (id, email, password_hash, name, employee_id, designation, role_id, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `, ['user-tech-001', 'ae@superbee.com', techPassword, 'Assembly Engineer', 'AE001', 'Assembly Engineer', 'role-002', true]);
-
-    console.log('✅ Created technician user: ae@superbee.com / 123456');
+      INSERT INTO users (id, email, password_hash, name, employee_id, designation, role_id, is_active, must_change_password)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, ['user-tech-001', 'ae@superbee.com', techPassword, 'Assembly Engineer', 'AE001', 'Assembly Engineer', 'role-002', true, true]);
 
     await connection.end();
-    console.log('\n🎉 User initialization complete!');
-    console.log('\nYou can now login with:');
-    console.log('  Admin: ram@superbee.com / 123456');
-    console.log('  Technician: ae@superbee.com / 123456');
+
+    // FIX-02: Write credentials securely with read/write permissions for owner only (0o600)
+    const credentialsPath = path.join(__dirname, '../.setup-credentials.txt');
+    const credentialsText = `Admin: ram@superbee.com / ${adminPw}\nTechnician: ae@superbee.com / ${techPw}\n`;
+    fs.writeFileSync(credentialsPath, credentialsText, { mode: 0o600 });
+
+    console.log('✅ Credentials saved to .setup-credentials.txt — DELETE after use');
     process.exit(0);
   } catch (error) {
     console.error('❌ Error:', error.message);

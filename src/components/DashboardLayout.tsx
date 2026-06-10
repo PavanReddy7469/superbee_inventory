@@ -1,4 +1,4 @@
-import { useState, ReactNode } from 'react';
+import { useState, ReactNode, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
@@ -36,6 +36,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
+
+  // FIX-02: Mandate password change for default/temporary credentials. Force modal open.
+  useEffect(() => {
+    if (profile && profile.must_change_password) {
+      setShowPasswordModal(true);
+    }
+  }, [profile]);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -386,17 +393,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 </div>
                 <h3 className="text-lg font-bold text-slate-800">Change Password</h3>
               </div>
-              <button 
-                onClick={() => {
-                  setShowPasswordModal(false);
-                  setOldPassword('');
-                  setNewPassword('');
-                  setConfirmPassword('');
-                }}
-                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              {!profile?.must_change_password && (
+                <button 
+                  onClick={() => {
+                    setShowPasswordModal(false);
+                    setOldPassword('');
+                    setNewPassword('');
+                    setConfirmPassword('');
+                  }}
+                  className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              )}
             </div>
 
             <form onSubmit={handlePasswordSubmit} className="p-6 space-y-4">
@@ -443,18 +452,20 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               </div>
 
               <div className="flex gap-2 justify-end pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPasswordModal(false);
-                    setOldPassword('');
-                    setNewPassword('');
-                    setConfirmPassword('');
-                  }}
-                  className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-lg text-sm font-semibold transition-colors"
-                >
-                  Cancel
-                </button>
+                {!profile?.must_change_password && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasswordModal(false);
+                      setOldPassword('');
+                      setNewPassword('');
+                      setConfirmPassword('');
+                    }}
+                    className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-lg text-sm font-semibold transition-colors"
+                  >
+                    Cancel
+                  </button>
+                )}
                 <button
                   type="submit"
                   disabled={passwordLoading}

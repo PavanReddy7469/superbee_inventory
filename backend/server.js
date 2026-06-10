@@ -1,6 +1,13 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const { generalLimiter } = require('./middleware/rateLimiter');
 require('dotenv').config();
+
+// FIX-01: Startup guard to ensure JWT_SECRET is configured and sufficiently long (prevents weak keys/default key leakage)
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  throw new Error('FATAL: JWT_SECRET missing or too short');
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -22,6 +29,10 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// FIX-06: Apply general rate limiter to protect all /api routes from DoS/abuse
+app.use('/api', generalLimiter);
 
 // Test database connection
 require('./config/database');
