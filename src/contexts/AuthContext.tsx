@@ -25,7 +25,7 @@ interface AuthContextType {
   user: any | null;
   profile: UserProfile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ requiresPasswordChange: boolean }>;
+  signIn: (email: string, password: string) => Promise<{ requiresPasswordChange: boolean; role?: UserRole }>;
   signOut: () => Promise<void>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
 }

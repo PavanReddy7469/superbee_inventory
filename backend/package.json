@@ -30,7 +30,10 @@
     "jsonwebtoken": "9.0.3",
     "mysql2": "3.22.3",
     "password-validator": "5.3.0",
-    "uuid": "9.0.1"
+    "uuid": "11.1.1"
+  },
+  "overrides": {
+    "cookie": "0.7.0"
   },
   "devDependencies": {
     "nodemon": "3.1.14"
