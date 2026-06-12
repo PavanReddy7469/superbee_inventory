@@ -17,9 +17,9 @@ async function initUsers() {
 
     console.log('✅ Connected to database');
 
-    // FIX-02: Generate strong random default credentials rather than weak hardcoded "123456"
-    const adminPw = crypto.randomBytes(16).toString('hex');
-    const techPw = crypto.randomBytes(16).toString('hex');
+    // FIX-02: Use the customized default password "Superbee@123"
+    const adminPw = 'Superbee@123';
+    const techPw = 'Superbee@123';
 
     // FIX-02: Increase bcrypt rounds from 10 to 12 for stronger work factor
     const adminPassword = await bcrypt.hash(adminPw, 12);
