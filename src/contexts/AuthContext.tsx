@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
         // FIX-31: If 401 and not on public paths, redirect to /login
         if (error.response?.status === 401 && window.location.pathname !== '/' && window.location.pathname !== '/login') {
-          window.location.href = '/login';
+          window.location.href = '/';
         }
       } finally {
         setLoading(false);
