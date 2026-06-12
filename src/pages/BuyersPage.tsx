@@ -146,7 +146,7 @@ export default function BuyersPage() {
     user.employee_id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const canManageAdmins = profile?.role?.name === 'superadmin';
+  const canManageAdmins = profile?.role?.name === 'admin' || profile?.role?.name === 'superadmin';
   const canManageTechnicians = profile?.role?.name === 'admin' || profile?.role?.name === 'superadmin';
 
   return (
