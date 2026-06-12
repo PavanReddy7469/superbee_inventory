@@ -50,7 +50,7 @@ router.post(
     body('mobile_number')
       .matches(/^\+?[0-9]{10,15}$/).withMessage('Mobile number must be 10 to 15 digits, optionally starting with +'),
     body('employee_id')
-      .isAlphanumeric().withMessage('Employee ID must be alphanumeric')
+      .matches(/^[A-Za-z0-9\s-]+$/).withMessage('Employee ID must be alphanumeric, spaces, or dashes')
       .isLength({ min: 3, max: 20 }).withMessage('Employee ID must be 3 to 20 characters'),
     body('designation')
       .optional()
