@@ -1,0 +1,76 @@
+name: SBA-IMS CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root_password
+          MYSQL_DATABASE: superbee_inventory
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version-file: '.nvmrc'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm install --legacy-peer-deps
+
+    - name: Run frontend typecheck
+      run: npm run typecheck
+
+    - name: Run frontend lint
+      run: npm run lint
+      continue-on-error: true
+
+    - name: Compile frontend production assets
+      run: npm run build
+
+    - name: Configure backend env for CI
+      run: |
+        cp backend/.env.example backend/.env
+        # Replace template placeholders with test database credentials
+        sed -i 's/DB_HOST=your-db-host/DB_HOST=127.0.0.1/g' backend/.env
+        sed -i 's/DB_USER=sba_app/DB_USER=root/g' backend/.env
+        sed -i 's/DB_PASSWORD=strong_random_password/DB_PASSWORD=root_password/g' backend/.env
+        sed -i 's/DB_NAME=superbee_ims/DB_NAME=superbee_inventory/g' backend/.env
+        # Generate random secrets for test run
+        JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(64).toString('hex'))")
+        SESSION_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+        sed -i "s/JWT_SECRET=generate_64_char_random_string/JWT_SECRET=${JWT_SECRET}/g" backend/.env
+        sed -i "s/SESSION_SECRET=generate_32_char_random_string/SESSION_SECRET=${SESSION_SECRET}/g" backend/.env
+
+    - name: Set up database tables and seed users
+      working-directory: ./backend
+      run: |
+        node scripts/setup-db.js
+        node scripts/migrate-db-phase4.js
+        node scripts/init-users.js
+
+    - name: Spin up backend API server
+      working-directory: ./backend
+      run: npm start &
+
+    - name: Wait for server port
+      run: sleep 5
+
+    - name: Execute automated security verification tests
+      working-directory: ./backend
+      run: node scripts/verify-security.js

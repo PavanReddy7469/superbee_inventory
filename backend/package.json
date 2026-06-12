@@ -11,7 +11,8 @@
     "dev": "nodemon server.js",
     "init-users": "node scripts/init-users.js",
     "audit": "npm audit --audit-level=high",
-    "audit:fix": "npm audit fix"
+    "audit:fix": "npm audit fix",
+    "test": "node scripts/verify-security.js"
   },
   "keywords": [],
   "author": "",
