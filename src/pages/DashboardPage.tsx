@@ -124,7 +124,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-500 text-sm mb-1">Total Buyers</p>
+              <p className="text-slate-500 text-sm mb-1">Total Engineers</p>
               <p className="text-3xl font-bold text-slate-900">{stats.totalBuyers}</p>
             </div>
             <div className="h-14 w-14 rounded-full bg-cyan-100 flex items-center justify-center">
@@ -148,7 +148,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-500 text-sm mb-1">Total Buyer Request</p>
+              <p className="text-slate-500 text-sm mb-1">Pending Requests</p>
               <p className="text-3xl font-bold text-slate-900">{stats.totalBuyerRequest}</p>
             </div>
             <div className="h-14 w-14 rounded-full bg-green-100 flex items-center justify-center">
