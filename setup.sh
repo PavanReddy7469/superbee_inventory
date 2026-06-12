@@ -120,7 +120,7 @@ fi
 # ─────────────────────────────────────────────────
 echo ""
 log_info "📦 Installing frontend dependencies..."
-npm install --legacy-peer-deps
+npm install
 
 echo ""
 log_info "📦 Installing backend dependencies..."
