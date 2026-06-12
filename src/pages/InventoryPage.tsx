@@ -29,6 +29,7 @@ interface InventoryPart {
 // ── Edit form shape ──
 interface EditForm {
   name: string;
+  category_id: string;
   manufacturer: string;
   serial_number: string;
   quantity: number;
@@ -52,7 +53,7 @@ export default function InventoryPage() {
   // Edit
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingPart, setEditingPart] = useState<InventoryPart | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({ name: '', manufacturer: '', serial_number: '', quantity: 0, price: 0, status: 'active' });
+  const [editForm, setEditForm] = useState<EditForm>({ name: '', category_id: '', manufacturer: '', serial_number: '', quantity: 0, price: 0, status: 'active' });
   const [editSaving, setEditSaving] = useState(false);
 
   // Delete
@@ -101,7 +102,7 @@ export default function InventoryPage() {
   // ── Edit handlers ──
   const openEdit = (part: InventoryPart) => {
     setEditingPart(part);
-    setEditForm({ name: part.name, manufacturer: part.manufacturer, serial_number: part.serial_number || '', quantity: part.quantity, price: part.price, status: part.status });
+    setEditForm({ name: part.name, category_id: part.category_id, manufacturer: part.manufacturer, serial_number: part.serial_number || '', quantity: part.quantity, price: part.price, status: part.status });
     setShowEditModal(true);
   };
 
