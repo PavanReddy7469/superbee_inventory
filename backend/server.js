@@ -50,7 +50,7 @@ const allowedOrigins = (process.env.CORS_ORIGIN || '')
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) {
-      return callback(new Error('Origin header required'));
+      return callback(null, true);
     }
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);

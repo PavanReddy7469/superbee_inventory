@@ -15,8 +15,19 @@ export default function LoginPage() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotStatus, setForgotStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
 
-  const { signIn } = useAuth();
+  const { signIn, user, profile } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if user is already logged in
+  useEffect(() => {
+    if (user && profile) {
+      if (profile.role?.name === 'technician') {
+        navigate('/dashboard/inventory', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [user, profile, navigate]);
 
   // Rate limiting lockout state
   const [lockoutTime, setLockoutTime] = useState<number>(0);
@@ -45,7 +56,11 @@ export default function LoginPage() {
       
       // If forced password change flow is active
       if (result.requiresPasswordChange) {
-        navigate('/change-password');
+        if (result.role === 'technician') {
+          navigate('/dashboard/inventory');
+        } else {
+          navigate('/dashboard');
+        }
         return;
       }
 

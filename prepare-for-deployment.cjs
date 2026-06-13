@@ -92,10 +92,8 @@ if (fs.existsSync('.env')) {
 console.log('\n📋 Step 4: Checking documentation...');
 const docs = [
   'README.md',
-  'DEPLOYMENT_INSTRUCTIONS.md',
-  'DEPLOYMENT_CHECKLIST.md',
-  'HANDOVER_TO_IT_DEPARTMENT.md',
-  'START_HERE_FOR_DEPLOYMENT.md'
+  'README_DEPLOYMENT.md',
+  'backend/BACKUP_STRATEGY.md'
 ];
 
 docs.forEach(doc => {
@@ -139,9 +137,8 @@ console.log('   4. Run: cd backend && node scripts/init-users.js');
 console.log('   5. Test locally before deploying');
 
 console.log('\n📚 For IT Department:');
-console.log('   • Start with: START_HERE_FOR_DEPLOYMENT.md');
-console.log('   • Main guide: DEPLOYMENT_INSTRUCTIONS.md');
-console.log('   • Checklist: DEPLOYMENT_CHECKLIST.md');
+console.log('   • Deployment Guide: README_DEPLOYMENT.md');
+console.log('   • Backup Strategy:  backend/BACKUP_STRATEGY.md');
 
 console.log('\n🚀 Application is ready for deployment!');
 console.log('='.repeat(60) + '\n');

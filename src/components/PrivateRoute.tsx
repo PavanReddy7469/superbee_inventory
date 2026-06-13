@@ -27,10 +27,6 @@ export default function PrivateRoute({ children, requiredRoles }: PrivateRoutePr
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
-  // If forced password change flow is active → redirect to /change-password
-  if (profile?.must_change_password && location.pathname !== '/change-password') {
-    return <Navigate to="/change-password" replace />;
-  }
 
   // If requiredRoles is set and user.role is not in it → redirect to /unauthorized
   if (requiredRoles && profile?.role?.name && !requiredRoles.includes(profile.role.name)) {

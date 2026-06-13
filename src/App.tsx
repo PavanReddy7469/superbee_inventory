@@ -21,7 +21,6 @@ import SendRequestPage from './pages/SendRequestPage';
 import GenerateInvoicePage from './pages/GenerateInvoicePage';
 import GenerateAOPage from './pages/GenerateAOPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
-import ChangePasswordPage from './pages/ChangePasswordPage';
 import { autoSeedIfNeeded } from './utils/seedDummyData';
 import { initializeMockData } from './utils/mockData';
 
@@ -39,14 +38,6 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
-            <Route
-              path="/change-password"
-              element={
-                <PrivateRoute>
-                  <ChangePasswordPage />
-                </PrivateRoute>
-              }
-            />
 
             <Route
               path="/dashboard"
