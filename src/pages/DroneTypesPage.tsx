@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getMockDroneTypes } from '../utils/mockData';
-import { Trash2, PlusCircle, X } from 'lucide-react';
+import { Trash2, PlusCircle, X, Edit } from 'lucide-react';
 
 // ── 4 Status options ──
 type DroneStatus = 'ready_to_fly' | 'for_repair' | 'under_repair' | 'retired';
@@ -29,6 +29,12 @@ export default function DroneTypesPage() {
   const [name, setName] = useState('');
   const [newStatus, setNewStatus] = useState<DroneStatus>('ready_to_fly');
   const [search, setSearch] = useState('');
+
+  // Edit State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingType, setEditingType] = useState<DroneType | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editStatus, setEditStatus] = useState<DroneStatus>('ready_to_fly');
 
   useEffect(() => { fetchTypes(); }, []);
 
@@ -66,6 +72,34 @@ export default function DroneTypesPage() {
     setShowModal(false);
     setName('');
     setNewStatus('ready_to_fly');
+    fetchTypes();
+  };
+
+  const handleEditClick = (t: DroneType) => {
+    setEditingType(t);
+    setEditName(t.name);
+    setEditStatus(t.status);
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!editingType) return;
+    if (!editName.trim()) return alert('Name is required');
+    const mockData = getMockDroneTypes();
+    const updated = mockData.map((t: any) =>
+      t.id === editingType.id
+        ? {
+            ...t,
+            name: editName.trim(),
+            status: editStatus,
+          }
+        : t
+    );
+    localStorage.setItem('mockDroneTypes', JSON.stringify(updated));
+    setShowEditModal(false);
+    setEditingType(null);
+    setEditName('');
     fetchTypes();
   };
 
@@ -146,7 +180,14 @@ export default function DroneTypesPage() {
                       </td>
 
                       {/* Action */}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 flex gap-2">
+                        <button
+                          onClick={() => handleEditClick(t)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition-colors text-xs font-medium"
+                          title="Edit"
+                        >
+                          <Edit className="h-3.5 w-3.5" /> Edit
+                        </button>
                         <button
                           onClick={() => handleDelete(t.id)}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors text-xs font-medium"
@@ -178,7 +219,7 @@ export default function DroneTypesPage() {
                 <input
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                   placeholder="e.g. Quadcopter X200"
                   required
                 />
@@ -200,6 +241,50 @@ export default function DroneTypesPage() {
                   Create
                 </button>
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Drone Type Modal ── */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative">
+            <button onClick={() => setShowEditModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700">
+              <X className="h-5 w-5" />
+            </button>
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Edit Drone Type</h3>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Drone Type Name <span className="text-red-500">*</span></label>
+                <input
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  placeholder="e.g. Quadcopter X200"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                <select
+                  value={editStatus}
+                  onChange={e => setEditStatus(e.target.value as DroneStatus)}
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                >
+                  {STATUS_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="submit" className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">
+                  Save Changes
+                </button>
+                <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium">
                   Cancel
                 </button>
               </div>
