@@ -14,13 +14,7 @@ router.post(
   loginLimiter, 
   [
     body('email')
-      .isEmail().withMessage('Must be a valid email')
-      .custom(value => {
-        if (value && !value.endsWith('@superbee.com')) {
-          throw new Error('Email must end with @superbee.com');
-        }
-        return true;
-      }),
+      .isEmail().withMessage('Must be a valid email'),
     body('password').notEmpty().withMessage('Password is required'),
     validate
   ],

@@ -53,10 +53,7 @@ export default function BuyersPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.email.endsWith('@superbee.com')) {
-      alert('Email must be from @superbee.com domain');
-      return;
-    }
+
 
     try {
       const userData = {
@@ -311,7 +308,7 @@ export default function BuyersPage() {
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="user@superbee.com"
+                      placeholder="user@example.com"
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       required
                     />
@@ -373,7 +370,6 @@ export default function BuyersPage() {
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <p className="text-sm text-blue-800">
                     Login credentials will be automatically sent to the provided email address.
-                    Email must be from @superbee.com domain.
                   </p>
                 </div>
               </div>

@@ -29,13 +29,7 @@ router.post(
         return true;
       }),
     body('email')
-      .isEmail().withMessage('Must be a valid email')
-      .custom(value => {
-        if (value && !value.endsWith('@superbee.com')) {
-          throw new Error('Email must end with @superbee.com');
-        }
-        return true;
-      }),
+      .isEmail().withMessage('Must be a valid email'),
     body('password')
       .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
       .custom(value => {

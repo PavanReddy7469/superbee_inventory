@@ -86,10 +86,7 @@ exports.createUser = async (req, res) => {
   try {
     const { name, email, password, mobile_number, employee_id, designation, role_name } = req.body;
     
-    // Validate email domain
-    if (!email.endsWith('@superbee.com')) {
-      return res.status(400).json({ error: 'Email must be from @superbee.com domain' });
-    }
+
 
     // FIX-02: Enforce password requirement on creation, blocking empty passwords/default fallback
     if (!password || password.trim().length === 0) {
