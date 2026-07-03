@@ -89,22 +89,32 @@ async function run() {
   console.log('==========================================================\n');
 
   try {
-    // 1. Prompt for connection details
-    const defaultHost = process.env.DB_HOST || 'localhost';
-    const inputHost = await ask(`Enter MySQL Host (default: ${defaultHost}): `);
-    const db_host = inputHost.trim() || defaultHost;
-
-    const defaultPort = process.env.DB_PORT || '3306';
-    const inputPort = await ask(`Enter MySQL Port (default: ${defaultPort}): `);
-    const db_port = parseInt(inputPort.trim() || defaultPort, 10);
-
-    const defaultUser = process.env.DB_USER || 'root';
-    const inputUser = await ask(`Enter MySQL Username (default: ${defaultUser}): `);
-    const db_user = inputUser.trim() || defaultUser;
-
-    const db_password = await askPassword('Enter MySQL Password (default: empty): ');
-
+    let db_host, db_port, db_user, db_password;
     const db_name = 'superbee_inventory';
+
+    if (process.env.CI) {
+      // In CI environments, skip interactive prompts and use env vars directly
+      console.log('🤖 CI environment detected — using .env variables directly.');
+      db_host = process.env.DB_HOST || 'localhost';
+      db_port = parseInt(process.env.DB_PORT || '3306', 10);
+      db_user = process.env.DB_USER || 'root';
+      db_password = process.env.DB_PASSWORD || '';
+    } else {
+      // 1. Prompt for connection details
+      const defaultHost = process.env.DB_HOST || 'localhost';
+      const inputHost = await ask(`Enter MySQL Host (default: ${defaultHost}): `);
+      db_host = inputHost.trim() || defaultHost;
+
+      const defaultPort = process.env.DB_PORT || '3306';
+      const inputPort = await ask(`Enter MySQL Port (default: ${defaultPort}): `);
+      db_port = parseInt(inputPort.trim() || defaultPort, 10);
+
+      const defaultUser = process.env.DB_USER || 'root';
+      const inputUser = await ask(`Enter MySQL Username (default: ${defaultUser}): `);
+      db_user = inputUser.trim() || defaultUser;
+
+      db_password = await askPassword('Enter MySQL Password (default: empty): ');
+    }
 
     // 2. Connect to MySQL server (without specifying DB, as it might not exist yet)
     console.log('\n⏳ Connecting to MySQL server...');
