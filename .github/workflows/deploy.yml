@@ -18,6 +18,7 @@ jobs:
           port: 22
           script: |
             set -e
+            sudo chown -R ubuntu:ubuntu /var/www/superbeeaeronautics.com
             cd /var/www/superbeeaeronautics.com
             git fetch origin main
             git reset --hard origin/main
