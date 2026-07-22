@@ -282,19 +282,38 @@ export default function RegisterPartPage() {
             {/* ── Quantity ── */}
             <div>
               <label className={labelCls}>Quantity <span className="text-red-500">*</span></label>
-              <input type="number" min="0" value={formData.quantity}
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="0"
+                value={formData.quantity === 0 ? '' : formData.quantity}
                 onFocus={e => e.target.select()}
-                onChange={e => setFormData(f => ({ ...f, quantity: parseInt(e.target.value) || 0 }))}
-                className={inputCls} required />
+                onChange={e => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  setFormData(f => ({ ...f, quantity: val === '' ? 0 : parseInt(val, 10) }));
+                }}
+                className={inputCls}
+                required
+              />
             </div>
 
             {/* ── Price ── */}
             <div>
               <label className={labelCls}>Price (₹) <span className="text-red-500">*</span></label>
-              <input type="number" min="0" step="0.01" value={formData.price}
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="0"
+                value={formData.price === 0 ? '' : formData.price}
                 onFocus={e => e.target.select()}
-                onChange={e => setFormData(f => ({ ...f, price: parseFloat(e.target.value) || 0 }))}
-                className={inputCls} required />
+                onChange={e => {
+                  const val = e.target.value.replace(/[^0-9.]/g, '');
+                  setFormData(f => ({ ...f, price: val === '' ? 0 : parseFloat(val) || 0 }));
+                }}
+                className={inputCls}
+                required
+              />
             </div>
           </div>
 

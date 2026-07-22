@@ -180,11 +180,12 @@ export default function SendRequestPage() {
                             <div className="relative">
                                 <ShoppingBag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                                 <input
-                                    type="number"
-                                    min={1}
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                     value={form.quantity}
                                     onFocus={e => e.target.select()}
-                                    onChange={e => setForm(f => ({ ...f, quantity: Math.max(1, parseInt(e.target.value) || 1) }))}
+                                    onChange={e => setForm(f => ({ ...f, quantity: Math.max(1, parseInt(e.target.value.replace(/[^0-9]/g, ''), 10) || 1) }))}
                                     className={`${inputCls} pl-10`}
                                     required
                                 />
