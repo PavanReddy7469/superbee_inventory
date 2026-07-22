@@ -358,12 +358,12 @@ export default function InventoryPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Quantity</label>
-                <input type="number" min={0} value={editForm.quantity} onChange={e => setEditForm(f => ({ ...f, quantity: Number(e.target.value) }))}
+                <input type="number" min={0} value={editForm.quantity} onFocus={e => e.target.select()} onChange={e => setEditForm(f => ({ ...f, quantity: Number(e.target.value) }))}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Price (₹)</label>
-                <input type="number" min={0} step="0.01" value={editForm.price} onChange={e => setEditForm(f => ({ ...f, price: Number(e.target.value) }))}
+                <input type="number" min={0} step="0.01" value={editForm.price} onFocus={e => e.target.select()} onChange={e => setEditForm(f => ({ ...f, price: Number(e.target.value) }))}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400" />
               </div>
               <div>

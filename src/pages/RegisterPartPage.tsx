@@ -283,6 +283,7 @@ export default function RegisterPartPage() {
             <div>
               <label className={labelCls}>Quantity <span className="text-red-500">*</span></label>
               <input type="number" min="0" value={formData.quantity}
+                onFocus={e => e.target.select()}
                 onChange={e => setFormData(f => ({ ...f, quantity: parseInt(e.target.value) || 0 }))}
                 className={inputCls} required />
             </div>
@@ -291,6 +292,7 @@ export default function RegisterPartPage() {
             <div>
               <label className={labelCls}>Price (₹) <span className="text-red-500">*</span></label>
               <input type="number" min="0" step="0.01" value={formData.price}
+                onFocus={e => e.target.select()}
                 onChange={e => setFormData(f => ({ ...f, price: parseFloat(e.target.value) || 0 }))}
                 className={inputCls} required />
             </div>

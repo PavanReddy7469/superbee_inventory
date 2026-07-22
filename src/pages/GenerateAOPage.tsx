@@ -457,6 +457,7 @@ export default function GenerateAOPage() {
                   <input
                     type="number"
                     value={item.quantity}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                     min="1"
@@ -471,6 +472,7 @@ export default function GenerateAOPage() {
                   <input
                     type="number"
                     value={item.unitPrice}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => updateItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                     min="0"

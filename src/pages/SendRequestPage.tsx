@@ -183,6 +183,7 @@ export default function SendRequestPage() {
                                     type="number"
                                     min={1}
                                     value={form.quantity}
+                                    onFocus={e => e.target.select()}
                                     onChange={e => setForm(f => ({ ...f, quantity: Math.max(1, parseInt(e.target.value) || 1) }))}
                                     className={`${inputCls} pl-10`}
                                     required
