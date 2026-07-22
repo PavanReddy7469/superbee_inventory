@@ -17,8 +17,13 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
+            set -e
             cd /var/www/superbeeaeronautics.com
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fd
+            echo "Successfully synced to commit:"
+            git log -n 1 --oneline
             cd backend
             npm install --production
             cd ..
