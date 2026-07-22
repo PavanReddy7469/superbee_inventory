@@ -17,17 +17,14 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            set -e
-            sudo chown -R ubuntu:ubuntu /var/www/superbeeaeronautics.com
             cd /var/www/superbeeaeronautics.com
             git fetch origin main
             git reset --hard origin/main
             git clean -fd
-            echo "Successfully synced to commit:"
-            git log -n 1 --oneline
             cd backend
             npm install --production
             cd ..
             npm install
             npm run build
+            cp -rf dist/* .
             pm2 restart all
