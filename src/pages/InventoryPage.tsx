@@ -16,10 +16,12 @@ interface InventoryPart {
   name: string;
   category_id: string;
   manufacturer: string;
+  vendor?: string;
   serial_number?: string;
   quantity: number;
   price: number;
   status: 'active' | 'inactive';
+  invoice_url?: string;
   created_at: string;
   updated_at?: string;
   category?: { name: string };
@@ -144,12 +146,45 @@ export default function InventoryPage() {
   };
 
   // ── Invoice helpers ──
+  const getInvoiceFileData = (part: InventoryPart): { dataUrl: string; name: string; type: string } | null => {
+    if (part.invoice_url) {
+      const url = part.invoice_url;
+      const isImage = url.startsWith('data:image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(url);
+      return {
+        dataUrl: url,
+        name: `Invoice_${part.sku}.${isImage ? 'png' : 'pdf'}`,
+        type: isImage ? 'image/png' : 'application/pdf'
+      };
+    }
+    try {
+      const raw = localStorage.getItem(`invoice_file_${part.sku}`) || localStorage.getItem(`invoice_file_${part.id}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === 'string') {
+          return { dataUrl: parsed, name: `Invoice_${part.sku}.pdf`, type: 'application/pdf' };
+        }
+        return parsed;
+      }
+    } catch (e) {}
+    return null;
+  };
+
   const openInvoice = (part: InventoryPart) => { setInvoicePart(part); setShowInvoiceModal(true); };
+
   const generateInvoiceText = (part: InventoryPart) => {
     const now = new Date();
     return `========================================\n        SUPERBEE AERONAUTICS\n        INVENTORY INVOICE\n========================================\nDate       : ${now.toLocaleDateString()}\nTime       : ${now.toLocaleTimeString()}\nInvoice No : INV-${part.sku}-${now.getFullYear()}\n----------------------------------------\nPart Name  : ${part.name}\nSKU        : ${part.sku}\nCategory   : ${(part as any).category?.name || 'N/A'}\nManufacturer: ${part.manufacturer}\nSerial No  : ${part.serial_number || 'N/A'}\nQuantity   : ${part.quantity} units\nUnit Price : ₹${part.price.toFixed(2)}\n----------------------------------------\nTOTAL      : ₹${(part.price * part.quantity).toFixed(2)}\n========================================\nStatus     : ${part.quantity > 0 ? 'Stock Available' : 'Out of Stock'}\n========================================\nThank you for using Superbee Aeronautics\nInventory Management Portal`;
   };
+
   const downloadInvoice = (part: InventoryPart) => {
+    const uploaded = getInvoiceFileData(part);
+    if (uploaded && uploaded.dataUrl) {
+      const a = document.createElement('a');
+      a.href = uploaded.dataUrl;
+      a.download = uploaded.name || `Invoice_${part.sku}.pdf`;
+      a.click();
+      return;
+    }
     const blob = new Blob([generateInvoiceText(part)], { type: 'text/plain' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Invoice_${part.sku}.txt`; a.click();
   };
@@ -456,33 +491,82 @@ export default function InventoryPage() {
       {/* ══════════════════════════
           INVOICE MODAL
       ══════════════════════════ */}
-      {showInvoiceModal && invoicePart && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative">
-            <button onClick={() => setShowInvoiceModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700"><X className="h-5 w-5" /></button>
-            <div className="flex items-center gap-3 mb-5">
-              <div className="bg-blue-100 p-2.5 rounded-xl"><FileText className="h-6 w-6 text-blue-600" /></div>
-              <div><h3 className="text-lg font-bold text-slate-900">Inventory Invoice</h3><p className="text-xs text-slate-400">INV-{invoicePart.sku}-{new Date().getFullYear()}</p></div>
-            </div>
-            <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-3 mb-5 text-sm">
-              <div className="flex justify-between border-b border-slate-200 pb-2"><span className="text-slate-500">Date</span><span className="font-medium text-slate-800">{new Date().toLocaleDateString()}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Part Name</span><span className="font-medium text-slate-800 text-right max-w-[200px]">{invoicePart.name}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">SKU</span><span className="font-mono font-medium text-slate-800">{invoicePart.sku}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Category</span><span className="font-medium text-slate-800">{(invoicePart as any).category?.name || 'N/A'}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Manufacturer</span><span className="font-medium text-slate-800">{invoicePart.manufacturer}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Serial Number</span><span className="font-medium text-slate-800">{invoicePart.serial_number || 'N/A'}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Quantity</span><span className="font-medium text-slate-800">{invoicePart.quantity} units</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Unit Price</span><span className="font-medium text-slate-800">₹{invoicePart.price.toFixed(2)}</span></div>
-              <div className="flex justify-between border-t border-slate-300 pt-3"><span className="font-semibold text-slate-700">Total Value</span><span className="font-bold text-indigo-700 text-base">₹{(invoicePart.price * invoicePart.quantity).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Stock Status</span><span className={`font-semibold ${invoicePart.quantity > 0 ? 'text-green-600' : 'text-red-500'}`}>{invoicePart.quantity > 0 ? '✓ Stock Available' : '✗ Out of Stock'}</span></div>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => downloadInvoice(invoicePart)} className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"><Download className="h-4 w-4" />Download Invoice</button>
-              <button onClick={() => window.print()} className="flex-1 flex items-center justify-center gap-2 bg-slate-100 text-slate-700 px-4 py-2.5 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium">🖨︎ Print</button>
+      {showInvoiceModal && invoicePart && (() => {
+        const uploaded = getInvoiceFileData(invoicePart);
+        const isPdf = uploaded?.dataUrl?.startsWith('data:application/pdf') || uploaded?.type?.includes('pdf') || uploaded?.name?.endsWith('.pdf');
+        const isImg = uploaded?.dataUrl?.startsWith('data:image/') || uploaded?.type?.includes('image') || /\.(png|jpg|jpeg|gif|webp)$/i.test(uploaded?.name || '');
+
+        return (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className={`bg-white rounded-2xl shadow-2xl ${uploaded ? 'max-w-4xl w-full h-[85vh]' : 'max-w-md w-full'} p-6 relative flex flex-col`}>
+              <button onClick={() => setShowInvoiceModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 z-10">
+                <X className="h-5 w-5" />
+              </button>
+              
+              <div className="flex items-center gap-3 mb-4">
+                <div className="bg-blue-100 p-2.5 rounded-xl"><FileText className="h-6 w-6 text-blue-600" /></div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    {uploaded ? 'Uploaded Invoice / Bill Document' : 'Inventory Invoice'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {uploaded ? (uploaded.name || `Invoice_${invoicePart.sku}`) : `INV-${invoicePart.sku}-${new Date().getFullYear()}`}
+                  </p>
+                </div>
+              </div>
+
+              {uploaded ? (
+                <div className="flex-1 overflow-hidden flex flex-col mb-4 min-h-0">
+                  {isPdf ? (
+                    <iframe
+                      src={uploaded.dataUrl}
+                      title={`Invoice_${invoicePart.sku}`}
+                      className="w-full h-full rounded-xl border border-slate-200 bg-slate-100 min-h-[450px]"
+                    />
+                  ) : isImg ? (
+                    <div className="w-full h-full overflow-auto rounded-xl border border-slate-200 bg-slate-100 p-2 flex items-center justify-center">
+                      <img src={uploaded.dataUrl} alt="Uploaded Invoice" className="max-w-full max-h-full object-contain rounded-lg shadow-sm" />
+                    </div>
+                  ) : (
+                    <iframe
+                      src={uploaded.dataUrl}
+                      title={`Invoice_${invoicePart.sku}`}
+                      className="w-full h-full rounded-xl border border-slate-200 bg-slate-100 min-h-[450px]"
+                    />
+                  )}
+                </div>
+              ) : (
+                <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-3 mb-5 text-sm">
+                  <div className="flex justify-between border-b border-slate-200 pb-2"><span className="text-slate-500">Date</span><span className="font-medium text-slate-800">{new Date().toLocaleDateString()}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Part Name</span><span className="font-medium text-slate-800 text-right max-w-[200px]">{invoicePart.name}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">SKU</span><span className="font-mono font-medium text-slate-800">{invoicePart.sku}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Category</span><span className="font-medium text-slate-800">{(invoicePart as any).category?.name || 'N/A'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Manufacturer</span><span className="font-medium text-slate-800">{invoicePart.manufacturer}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Serial Number</span><span className="font-medium text-slate-800">{invoicePart.serial_number || 'N/A'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Quantity</span><span className="font-medium text-slate-800">{invoicePart.quantity} units</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Unit Price</span><span className="font-medium text-slate-800">₹{invoicePart.price.toFixed(2)}</span></div>
+                  <div className="flex justify-between border-t border-slate-300 pt-3"><span className="font-semibold text-slate-700">Total Value</span><span className="font-bold text-indigo-700 text-base">₹{(invoicePart.price * invoicePart.quantity).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Stock Status</span><span className={`font-semibold ${invoicePart.quantity > 0 ? 'text-green-600' : 'text-red-500'}`}>{invoicePart.quantity > 0 ? '✓ Stock Available' : '✗ Out of Stock'}</span></div>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => downloadInvoice(invoicePart)} className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">
+                  <Download className="h-4 w-4" />Download {uploaded ? 'Uploaded File' : 'Invoice'}
+                </button>
+                {uploaded && (
+                  <button onClick={() => window.open(uploaded.dataUrl, '_blank')} className="flex-1 flex items-center justify-center gap-2 bg-blue-50 text-blue-700 border border-blue-200 px-4 py-2.5 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium">
+                    <Eye className="h-4 w-4" />Open in New Tab
+                  </button>
+                )}
+                <button onClick={() => window.print()} className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium">
+                  🖨︎ Print
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

@@ -65,21 +65,30 @@ exports.getPartById = async (req, res) => {
 // Create new part
 exports.createPart = async (req, res) => {
   try {
-    const { sku, name, category_id, manufacturer, serial_number, quantity, price, status } = req.body;
+    const { sku, name, category_id, manufacturer, vendor, serial_number, quantity, price, status, invoice_url } = req.body;
 
     // Validate required fields
     if (!sku || !name || !category_id) {
       return res.status(400).json({ error: 'SKU, name, and category are required' });
     }
 
+    // Ensure vendor and invoice_url columns exist
+    await db.query("ALTER TABLE inventory_parts ADD COLUMN vendor VARCHAR(255)").catch(() => {});
+    await db.query("ALTER TABLE inventory_parts ADD COLUMN invoice_url LONGTEXT").catch(() => {});
+
     const id = uuidv4();
     const created_by = req.user.id;
 
     await db.query(`
       INSERT INTO inventory_parts 
-      (id, sku, name, category_id, manufacturer, serial_number, quantity, price, status, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [id, sku, name, category_id, manufacturer, serial_number, quantity || 0, price !== undefined && price !== null ? price : null, status || 'active', created_by]);
+      (id, sku, name, category_id, manufacturer, vendor, serial_number, quantity, price, status, invoice_url, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      id, sku, name, category_id,
+      manufacturer || null, vendor || null, serial_number || null,
+      quantity || 0, price !== undefined && price !== null ? price : null,
+      status || 'active', invoice_url || null, created_by
+    ]);
 
     // FIX-09: Log part creation to database audit trail
     await auditLog(db, req, 'CREATE_INVENTORY_PART', 'inventory_parts', id, `Inventory part ${sku} created`);
@@ -109,7 +118,11 @@ exports.createPart = async (req, res) => {
 exports.updatePart = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, category_id, manufacturer, serial_number, quantity, price, status } = req.body;
+    const { name, category_id, manufacturer, vendor, serial_number, quantity, price, status, invoice_url } = req.body;
+
+    // Ensure vendor and invoice_url columns exist
+    await db.query("ALTER TABLE inventory_parts ADD COLUMN vendor VARCHAR(255)").catch(() => {});
+    await db.query("ALTER TABLE inventory_parts ADD COLUMN invoice_url LONGTEXT").catch(() => {});
 
     // Check if part exists
     const [existing] = await db.query('SELECT id FROM inventory_parts WHERE id = ? AND is_deleted = FALSE', [id]);
@@ -119,9 +132,9 @@ exports.updatePart = async (req, res) => {
 
     await db.query(`
       UPDATE inventory_parts 
-      SET name = ?, category_id = ?, manufacturer = ?, serial_number = ?, quantity = ?, price = ?, status = ?
+      SET name = ?, category_id = ?, manufacturer = ?, vendor = ?, serial_number = ?, quantity = ?, price = ?, status = ?, invoice_url = COALESCE(?, invoice_url)
       WHERE id = ?
-    `, [name, category_id, manufacturer, serial_number, quantity, price, status, id]);
+    `, [name, category_id, manufacturer || null, vendor || null, serial_number || null, quantity, price, status, invoice_url || null, id]);
 
     // FIX-09: Log part update to database audit trail
     await auditLog(db, req, 'UPDATE_INVENTORY_PART', 'inventory_parts', id, `Inventory part updated`);

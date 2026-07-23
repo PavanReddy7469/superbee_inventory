@@ -207,19 +207,47 @@ export default function RegisterPartPage() {
         }
       }
 
+      let invoiceUrl: string | null = null;
+      if (invoiceFile) {
+        try {
+          invoiceUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = err => reject(err);
+            reader.readAsDataURL(invoiceFile);
+          });
+        } catch (err) {
+          console.error('Error reading invoice file:', err);
+        }
+      }
+
       const sku = generateSKU();
       const newPart = {
         sku,
         name: formData.name,
         category_id: formData.category_id,
         manufacturer: formData.manufacturer,
+        vendor: formData.vendor,
         serial_number: formData.bill_number || '',
         quantity: formData.quantity,
         price: formData.price,
         status: 'active',
+        invoice_url: invoiceUrl,
       };
       
       await inventoryAPI.create(newPart);
+
+      if (invoiceUrl) {
+        try {
+          localStorage.setItem(`invoice_file_${sku}`, JSON.stringify({
+            dataUrl: invoiceUrl,
+            name: invoiceFile?.name || `Invoice_${sku}.pdf`,
+            type: invoiceFile?.type || 'application/pdf'
+          }));
+        } catch (e) {
+          console.error('Error saving invoice to localStorage:', e);
+        }
+      }
       
       setGeneratedSKU(sku);
       setShowSuccessModal(true);
