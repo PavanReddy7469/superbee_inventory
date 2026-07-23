@@ -129,3 +129,9 @@ export const externalTestersAPI = {
   markConsumed: (id: string) => api.post(`/external-testers/${id}/consumed`),
   delete: (id: string) => api.delete(`/external-testers/${id}`),
 };
+
+export const sendRequestsAPI = {
+  getAll: () => api.get('/send-requests'),
+  create: (data: any) => api.post('/send-requests', data),
+  updateStatus: (id: string, status: 'approved' | 'rejected') => api.patch(`/send-requests/${id}/status`, { status }),
+};

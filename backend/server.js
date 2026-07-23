@@ -94,6 +94,26 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Auto-ensure send_requests table exists
+const pool = require('./config/database');
+pool.query(`
+  CREATE TABLE IF NOT EXISTS send_requests (
+    id VARCHAR(36) PRIMARY KEY,
+    part_value VARCHAR(255) NOT NULL,
+    part_mode VARCHAR(20) DEFAULT 'name',
+    category_name VARCHAR(255),
+    website TEXT NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    requested_by VARCHAR(255) NOT NULL,
+    email VARCHAR(255),
+    requested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT,
+    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_status (status)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+`).catch(err => console.error('Error initializing send_requests table:', err.message));
+
 // Import routes
 const authRoutes = require('./routes/auth');
 const inventoryRoutes = require('./routes/inventory');
@@ -103,6 +123,7 @@ const aeRequestsRoutes = require('./routes/aeRequests');
 const dashboardRoutes = require('./routes/dashboard');
 const fixedInventoryRoutes = require('./routes/fixedInventory');
 const externalTestersRoutes = require('./routes/externalTesters');
+const sendRequestsRoutes = require('./routes/sendRequests');
 
 // Test error endpoint for security verification of global error handler
 app.get('/api/trigger-error', (req, res, next) => {
@@ -127,6 +148,7 @@ app.use('/api/v1/ae-requests', aeRequestsRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/fixed-inventory', fixedInventoryRoutes);
 app.use('/api/v1/external-testers', externalTestersRoutes);
+app.use('/api/v1/send-requests', sendRequestsRoutes);
 
 // Error handling middleware
 // FIX-14: Replace error handling middleware to mask stack traces and raw error messages in production

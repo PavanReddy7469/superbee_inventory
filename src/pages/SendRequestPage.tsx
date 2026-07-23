@@ -1,32 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getMockCategories } from '../utils/mockData';
+import { categoriesAPI, sendRequestsAPI } from '../lib/api';
 import { Send, CheckCircle2, ExternalLink, Hash, Tag, ShoppingBag, Calendar } from 'lucide-react';
 
 type NameMode = 'name' | 'number';
-
-interface SendRequest {
-    id: string;
-    mode: NameMode;
-    part_value: string;
-    category_id: string;
-    website: string;
-    quantity: number;
-    requested_by: string;
-    created_at: string;
-}
-
-const getMockSendRequests = (): SendRequest[] => {
-    try {
-        return JSON.parse(localStorage.getItem('mockSendRequests') || '[]');
-    } catch { return []; }
-};
-
-const saveSendRequest = (req: SendRequest) => {
-    const existing = getMockSendRequests();
-    localStorage.setItem('mockSendRequests', JSON.stringify([...existing, req]));
-};
 
 export default function SendRequestPage() {
     const navigate = useNavigate();
@@ -45,9 +23,12 @@ export default function SendRequestPage() {
     const [showSuccess, setShowSuccess] = useState(false);
     const [saving, setSaving] = useState(false);
 
-    // Pre-fill date & time with current
+    // Pre-fill date & time with current and fetch categories
     useEffect(() => {
-        setCategories(getMockCategories());
+        categoriesAPI.getAll()
+            .then(res => setCategories(res.data || []))
+            .catch(() => {});
+
         const now = new Date();
         const pad = (n: number) => String(n).padStart(2, '0');
         setForm(f => ({
@@ -65,21 +46,29 @@ export default function SendRequestPage() {
         if (!form.part_value.trim()) return alert('Part name/number is required');
         if (!form.website.trim()) return alert('Website / Purchase link is required');
         setSaving(true);
-        await new Promise(r => setTimeout(r, 400));
 
-        const newReq: SendRequest = {
-            id: 'sr_' + Date.now(),
-            mode,
-            part_value: form.part_value.trim(),
-            category_id: form.category_id,
-            website: form.website.trim(),
-            quantity: form.quantity,
-            requested_by: profile?.name || profile?.email || 'AE User',
-            created_at: new Date(`${form.date}T${form.time}`).toISOString(),
-        };
-        saveSendRequest(newReq);
-        setSaving(false);
-        setShowSuccess(true);
+        try {
+            const catObj = categories.find(c => String(c.id) === String(form.category_id));
+            const catName = catObj ? catObj.name : (form.category_id || null);
+
+            await sendRequestsAPI.create({
+                part_value: form.part_value.trim(),
+                part_mode: mode,
+                category_name: catName,
+                website: form.website.trim(),
+                quantity: form.quantity,
+                requested_by: profile?.name || profile?.email || 'AE User',
+                email: profile?.email || '',
+                requested_at: `${form.date}T${form.time}:00`,
+            });
+
+            setSaving(false);
+            setShowSuccess(true);
+        } catch (error: any) {
+            console.error('Error submitting send request:', error);
+            alert(error.response?.data?.error || 'Failed to submit request');
+            setSaving(false);
+        }
     };
 
     const resetForm = () => {
