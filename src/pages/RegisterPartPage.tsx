@@ -3,15 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { inventoryAPI, categoriesAPI } from '../lib/api';
 import { Upload, X, QrCode, AlertCircle, CheckCircle2 } from 'lucide-react';
 
-// ── Static Vendors / Manufacturers ──
-const VENDOR_OPTIONS = [
-  'DJI Enterprise', 'Holybro', 'T-Motor', 'Sunnysky', 'Emax',
-  'Hobbywing', 'Tattu', 'Gens Ace', 'Turnigy', 'Ublox',
-  'FrSky', 'RunCam', 'GoPro', 'Matek Systems', 'ArduPilot',
-  'Hobbyking', 'Gemfan', 'InvenSense', 'Bosch Sensortec', 'RMRC',
-  'Other'
-];
-
 // ── Reusable "Select + Manual Other" component ──
 function SelectOrOther({
   label, required, value, onChange, options, placeholder = '— Select —'
@@ -24,8 +15,12 @@ function SelectOrOther({
 
   // Sync manual box when parent resets
   useEffect(() => {
-    if (value === '' || options.includes(value)) setManualVal('');
-  }, [value]);
+    if (value === '' || options.includes(value)) {
+      if (value !== 'Other') setManualVal('');
+    } else {
+      setManualVal(value);
+    }
+  }, [value, options]);
 
   const handleSelect = (v: string) => {
     if (v === 'Other') {
@@ -74,6 +69,8 @@ function SelectOrOther({
 
 export default function RegisterPartPage() {
   const [categories, setCategories] = useState<any[]>([]);
+  const [manufacturerOptions, setManufacturerOptions] = useState<string[]>(['Other']);
+  const [vendorOptions, setVendorOptions] = useState<string[]>(['Other']);
 
   const [formData, setFormData] = useState({
     partNameType: 'name' as 'name' | 'number',
@@ -100,6 +97,7 @@ export default function RegisterPartPage() {
 
   useEffect(() => {
     fetchCategories();
+    loadSavedOptions();
   }, []);
 
   const fetchCategories = async () => {
@@ -111,6 +109,46 @@ export default function RegisterPartPage() {
     }
   };
 
+  const loadSavedOptions = async () => {
+    let localMfgs: string[] = [];
+    let localVendors: string[] = [];
+    try {
+      const mStr = localStorage.getItem('saved_manufacturers');
+      if (mStr) localMfgs = JSON.parse(mStr);
+    } catch (e) {}
+
+    try {
+      const vStr = localStorage.getItem('saved_vendors');
+      if (vStr) localVendors = JSON.parse(vStr);
+    } catch (e) {}
+
+    let dbMfgs: string[] = [];
+    let dbVendors: string[] = [];
+    try {
+      const res = await inventoryAPI.getAll();
+      const parts = res.data || [];
+      parts.forEach((p: any) => {
+        if (p.manufacturer && typeof p.manufacturer === 'string' && p.manufacturer.trim()) {
+          dbMfgs.push(p.manufacturer.trim());
+        }
+        if (p.vendor && typeof p.vendor === 'string' && p.vendor.trim()) {
+          dbVendors.push(p.vendor.trim());
+        }
+      });
+    } catch (e) {
+      console.error('Error fetching inventory for options:', e);
+    }
+
+    const combinedM = Array.from(new Set([...localMfgs, ...dbMfgs])).filter(m => m && m !== 'Other');
+    const combinedV = Array.from(new Set([...localVendors, ...dbVendors])).filter(v => v && v !== 'Other');
+
+    setManufacturerOptions([...combinedM, 'Other']);
+    setVendorOptions([...combinedV, 'Other']);
+
+    localStorage.setItem('saved_manufacturers', JSON.stringify(combinedM));
+    localStorage.setItem('saved_vendors', JSON.stringify(combinedV));
+  };
+
   // ── Bill number dropdown change ──
   const handleBillSelect = (val: string) => {
     setFormData(f => ({ ...f, bill_number: val }));
@@ -119,11 +157,9 @@ export default function RegisterPartPage() {
 
   const validateBill = (val: string) => {
     if (!val) { setBillError(''); setBillOk(false); return; }
-    // Note: Bill validation against existing bills removed for now
     setBillError('');
     setBillOk(true);
   };
-
 
   const generateSKU = (): string => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -145,6 +181,32 @@ export default function RegisterPartPage() {
     if (billError) return;
     setLoading(true);
     try {
+      // Save new manufacturer if custom
+      if (formData.manufacturer && formData.manufacturer !== 'Other') {
+        const mName = formData.manufacturer.trim();
+        if (mName) {
+          const existingM = manufacturerOptions.filter(o => o !== 'Other');
+          if (!existingM.includes(mName)) {
+            const updatedM = [...existingM, mName];
+            setManufacturerOptions([...updatedM, 'Other']);
+            localStorage.setItem('saved_manufacturers', JSON.stringify(updatedM));
+          }
+        }
+      }
+
+      // Save new vendor if custom
+      if (formData.vendor && formData.vendor !== 'Other') {
+        const vName = formData.vendor.trim();
+        if (vName) {
+          const existingV = vendorOptions.filter(o => o !== 'Other');
+          if (!existingV.includes(vName)) {
+            const updatedV = [...existingV, vName];
+            setVendorOptions([...updatedV, 'Other']);
+            localStorage.setItem('saved_vendors', JSON.stringify(updatedV));
+          }
+        }
+      }
+
       const sku = generateSKU();
       const newPart = {
         sku,
@@ -234,7 +296,7 @@ export default function RegisterPartPage() {
               required
               value={formData.manufacturer}
               onChange={v => setFormData(f => ({ ...f, manufacturer: v }))}
-              options={VENDOR_OPTIONS}
+              options={manufacturerOptions}
               placeholder="— Select Manufacturer —"
             />
 
@@ -244,7 +306,7 @@ export default function RegisterPartPage() {
               required
               value={formData.vendor}
               onChange={v => setFormData(f => ({ ...f, vendor: v }))}
-              options={VENDOR_OPTIONS}
+              options={vendorOptions}
               placeholder="— Select Vendor —"
             />
 
