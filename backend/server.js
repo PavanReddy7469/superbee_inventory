@@ -61,8 +61,8 @@ app.use(cors({
 }));
 
 // FIX-16: Enforce request size limits to prevent buffer overflow/exhaustion Denial of Service (DoS) attacks
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.use(cookieParser());
 
 // FIX-15: Apply cookie-based CSRF protection middleware directly after body/cookie parsing
@@ -101,6 +101,7 @@ const categoriesRoutes = require('./routes/categories');
 const usersRoutes = require('./routes/users');
 const aeRequestsRoutes = require('./routes/aeRequests');
 const dashboardRoutes = require('./routes/dashboard');
+const fixedInventoryRoutes = require('./routes/fixedInventory');
 
 // Test error endpoint for security verification of global error handler
 app.get('/api/trigger-error', (req, res, next) => {
@@ -123,6 +124,7 @@ app.use('/api/v1/categories', categoriesRoutes);
 app.use('/api/v1/users', usersRoutes);
 app.use('/api/v1/ae-requests', aeRequestsRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1/fixed-inventory', fixedInventoryRoutes);
 
 // Error handling middleware
 // FIX-14: Replace error handling middleware to mask stack traces and raw error messages in production

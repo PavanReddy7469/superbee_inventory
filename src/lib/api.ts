@@ -111,3 +111,12 @@ export const dashboardAPI = {
   getStats: () => api.get('/dashboard/stats'),
   getProducts: (category_id?: string) => api.get('/dashboard/products', { params: { category_id } }),
 };
+
+export const fixedInventoryAPI = {
+  getAll: () => api.get('/fixed-inventory'),
+  getById: (id: string) => api.get(`/fixed-inventory/${id}`),
+  create: (data: any) => api.post('/fixed-inventory', data),
+  update: (id: string, data: any) => api.put(`/fixed-inventory/${id}`, data),
+  transfer: (id: string, data: any) => api.post(`/fixed-inventory/${id}/transfer`, data),
+  delete: (id: string) => api.delete(`/fixed-inventory/${id}`),
+};

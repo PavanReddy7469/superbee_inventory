@@ -15,7 +15,8 @@ import {
   User,
   Key,
   ShieldAlert,
-  Building2
+  Building2,
+  Laptop
 } from 'lucide-react';
 import logo from '../assets/superbee.png';
 
@@ -143,6 +144,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           roles: ['superadmin', 'admin']
         }
       ]
+    },
+    {
+      label: 'Fixed Inventory',
+      path: '/dashboard/fixed-inventory',
+      icon: <Laptop className="h-5 w-5" />
     },
 
     // Cart visible only to technicians
