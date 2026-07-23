@@ -322,6 +322,65 @@ export default function FixedInventoryPage() {
     return <PackageCheck className="h-5 w-5 text-slate-600" />;
   };
 
+  // Export to Excel / CSV
+  const handleExportExcel = () => {
+    if (filteredAssets.length === 0) {
+      showToastMsg('No fixed inventory assets to export', 'error');
+      return;
+    }
+
+    const headers = [
+      'Asset Tag',
+      'Asset Name',
+      'Category',
+      'Serial Number',
+      'Status',
+      'Assignee Name',
+      'Assignee Phone',
+      'Assignee Email',
+      'Assigned Date',
+      'Purchase Date',
+      'Price (INR)',
+      'Invoice Number',
+      'Notes',
+      'Total Transfers Count'
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows = filteredAssets.map(asset => [
+      escapeCsv(asset.asset_tag),
+      escapeCsv(asset.name),
+      escapeCsv(asset.category),
+      escapeCsv(asset.serial_number || ''),
+      escapeCsv(asset.status === 'assigned' || asset.assignee_name ? 'Assigned' : asset.status),
+      escapeCsv(asset.assignee_name || ''),
+      escapeCsv(asset.assignee_phone || ''),
+      escapeCsv(asset.assignee_email || ''),
+      escapeCsv(asset.assigned_date ? new Date(asset.assigned_date).toLocaleDateString() : ''),
+      escapeCsv(asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : ''),
+      escapeCsv(asset.price !== undefined && asset.price !== null ? asset.price : ''),
+      escapeCsv(asset.invoice_number || ''),
+      escapeCsv(asset.notes || ''),
+      escapeCsv(asset.history ? asset.history.length : 0)
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Fixed_Inventory_Report_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    showToastMsg(`Exported ${filteredAssets.length} fixed assets to Excel/CSV successfully!`);
+  };
+
   return (
     <div className="space-y-6">
       {/* Title Header */}
@@ -332,15 +391,27 @@ export default function FixedInventoryPage() {
             Manage office fixed assets (Laptops, PCs, Furniture, Appliances), employee assignments, and complete transfer histories.
           </p>
         </div>
-        {profile?.role?.name !== 'technician' && (
+
+        <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={() => { resetForm(); setShowAddModal(true); }}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors font-medium text-sm shadow-sm"
+            onClick={handleExportExcel}
+            className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition-colors font-medium text-sm shadow-sm"
+            title="Download Fixed Inventory Excel Report"
           >
-            <Plus className="h-5 w-5" />
-            Add Fixed Asset
+            <Download className="h-4 w-4" />
+            Export to Excel
           </button>
-        )}
+
+          {profile?.role?.name !== 'technician' && (
+            <button
+              onClick={() => { resetForm(); setShowAddModal(true); }}
+              className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors font-medium text-sm shadow-sm"
+            >
+              <Plus className="h-5 w-5" />
+              Add Fixed Asset
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Toast Alert */}
