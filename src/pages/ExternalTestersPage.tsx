@@ -78,8 +78,12 @@ export default function ExternalTestersPage() {
         externalTestersAPI.getAll(),
         inventoryAPI.getAll()
       ]);
-      setDispatches(dispRes.data || []);
-      setInventoryParts(invRes.data || []);
+      setDispatches(Array.isArray(dispRes.data) ? dispRes.data : []);
+
+      // Extract array from paginated API response { data: [...], total, page }
+      const rawInvData = invRes.data?.data || invRes.data || [];
+      const partsArray = Array.isArray(rawInvData) ? rawInvData : [];
+      setInventoryParts(partsArray);
     } catch (err) {
       console.error('Error loading external testers data:', err);
     } finally {
@@ -201,7 +205,7 @@ export default function ExternalTestersPage() {
 
         {profile?.role?.name !== 'technician' && (
           <button
-            onClick={() => { resetForm(); setShowDispatchModal(true); }}
+            onClick={() => { resetForm(); fetchData(); setShowDispatchModal(true); }}
             className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors font-medium text-sm shadow-sm"
           >
             <Send className="h-4 w-4" />
