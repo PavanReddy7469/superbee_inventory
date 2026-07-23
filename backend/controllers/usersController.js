@@ -197,6 +197,80 @@ exports.updateUserStatus = async (req, res) => {
   }
 };
 
+// Update user details
+exports.updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, mobile_number, employee_id, designation, role_name, password } = req.body;
+
+    // Check if user exists
+    const [existing] = await pool.query('SELECT * FROM users WHERE id = ? AND is_deleted = FALSE', [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // If email is changing, check uniqueness
+    if (email && email !== existing[0].email) {
+      const [emailCheck] = await pool.query('SELECT id FROM users WHERE email = ? AND id != ? AND is_deleted = FALSE', [email, id]);
+      if (emailCheck.length > 0) {
+        return res.status(400).json({ error: 'User with this email already exists' });
+      }
+    }
+
+    // If employee_id is changing, check uniqueness
+    if (employee_id && employee_id !== existing[0].employee_id) {
+      const [empCheck] = await pool.query('SELECT id FROM users WHERE employee_id = ? AND id != ? AND is_deleted = FALSE', [employee_id, id]);
+      if (empCheck.length > 0) {
+        return res.status(400).json({ error: 'User with this employee ID already exists' });
+      }
+    }
+
+    // Role lookup
+    let roleId = existing[0].role_id;
+    if (role_name) {
+      const [roleResult] = await pool.query('SELECT id FROM roles WHERE name = ?', [role_name]);
+      if (roleResult.length > 0) {
+        roleId = roleResult[0].id;
+      }
+    }
+
+    // Optional password update
+    let hashedPassword = existing[0].password_hash;
+    if (password && password.trim()) {
+      const failedRules = passwordPolicy.validate(password, { list: true });
+      if (failedRules.length > 0) {
+        return res.status(400).json({ 
+          error: `Password does not meet complexity rules. Failed rules: ${failedRules.join(', ')}` 
+        });
+      }
+      hashedPassword = await bcrypt.hash(password, 12);
+    }
+
+    await pool.query(
+      `UPDATE users 
+       SET name = ?, email = ?, mobile_number = ?, employee_id = ?, designation = ?, role_id = ?, password_hash = ?, updated_at = NOW()
+       WHERE id = ?`,
+      [
+        name || existing[0].name,
+        email || existing[0].email,
+        mobile_number !== undefined ? mobile_number : existing[0].mobile_number,
+        employee_id || existing[0].employee_id,
+        designation !== undefined ? designation : existing[0].designation,
+        roleId,
+        hashedPassword,
+        id
+      ]
+    );
+
+    await auditLog(pool, req, 'UPDATE_USER', 'users', id, `Updated user details for ${email || existing[0].email}`);
+
+    res.json({ message: 'User updated successfully' });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+};
+
 // Delete user
 exports.deleteUser = async (req, res) => {
   try {

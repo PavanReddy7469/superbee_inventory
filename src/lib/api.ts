@@ -95,6 +95,7 @@ export const categoriesAPI = {
 export const usersAPI = {
   getAll: (role?: string) => api.get('/users', { params: { role } }),
   create: (data: any) => api.post('/users', data),
+  update: (id: string, data: any) => api.put(`/users/${id}`, data),
   updateStatus: (id: string, is_active: boolean) => api.patch(`/users/${id}/status`, { is_active }),
   delete: (id: string) => api.delete(`/users/${id}`),
 };

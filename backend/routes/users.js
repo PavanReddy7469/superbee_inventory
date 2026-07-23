@@ -62,9 +62,36 @@ router.post(
   usersController.createUser
 );
 
+// Update user details
+router.put(
+  '/:id',
+  authorizeRoles('admin', 'superadmin'),
+  [
+    body('name')
+      .optional()
+      .isString().withMessage('Name must be a string')
+      .isLength({ min: 1, max: 255 }).withMessage('Name must be 1 to 255 characters'),
+    body('email')
+      .optional()
+      .isEmail().withMessage('Must be a valid email'),
+    body('mobile_number')
+      .optional()
+      .matches(/^\+?[0-9]{10,15}$/).withMessage('Mobile number must be 10 to 15 digits, optionally starting with +'),
+    body('employee_id')
+      .optional()
+      .matches(/^[A-Za-z0-9\s-]+$/).withMessage('Employee ID must be alphanumeric, spaces, or dashes'),
+    body('designation')
+      .optional()
+      .isString().withMessage('Designation must be a string'),
+    body('role_name')
+      .optional()
+      .isIn(['superadmin', 'admin', 'technician']).withMessage('Role must be superadmin, admin, or technician'),
+    validate
+  ],
+  usersController.updateUser
+);
+
 // Update user status with validation
-// FIX-04: Only Admin and Superadmin can update status to prevent technicians from enabling inactive accounts
-// FIX-07: Validate that is_active is boolean
 router.patch(
   '/:id/status', 
   authorizeRoles('admin', 'superadmin'), 
@@ -75,9 +102,8 @@ router.patch(
   usersController.updateUserStatus
 );
 
-// Delete user
-// FIX-04: Only Superadmin can delete accounts to prevent malicious data destruction by normal admins
-router.delete('/:id', authorizeRoles('superadmin'), usersController.deleteUser);
+// Delete user (Admins and Superadmins can delete users)
+router.delete('/:id', authorizeRoles('admin', 'superadmin'), usersController.deleteUser);
 
 module.exports = router;
 
