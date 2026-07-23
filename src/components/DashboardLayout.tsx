@@ -14,7 +14,8 @@ import {
   ShoppingCart,
   User,
   Key,
-  ShieldAlert
+  ShieldAlert,
+  Building2
 } from 'lucide-react';
 import logo from '../assets/superbee.png';
 
@@ -121,6 +122,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           label: 'Manage Category',
           path: '/dashboard/categories',
           icon: <Package className="h-5 w-5" />,
+          roles: ['superadmin', 'admin']
+        },
+        {
+          label: 'Manage Vendor & Manufacturer',
+          path: '/dashboard/vendors',
+          icon: <Building2 className="h-5 w-5" />,
           roles: ['superadmin', 'admin']
         },
         {

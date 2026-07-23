@@ -8,6 +8,7 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import DashboardEntry from './pages/DashboardEntry';
 import CategoriesPage from './pages/CategoriesPage';
+import VendorsManufacturersPage from './pages/VendorsManufacturersPage';
 import InventoryPage from './pages/InventoryPage';
 import RegisterPartPage from './pages/RegisterPartPage';
 import BuyersPage from './pages/BuyersPage';
@@ -145,6 +146,17 @@ function App() {
                 <PrivateRoute requiredRoles={['superadmin', 'admin']}>
                   <DashboardLayout>
                     <CategoriesPage />
+                  </DashboardLayout>
+                </PrivateRoute>
+              }
+            />
+
+            <Route
+              path="/dashboard/vendors"
+              element={
+                <PrivateRoute requiredRoles={['superadmin', 'admin']}>
+                  <DashboardLayout>
+                    <VendorsManufacturersPage />
                   </DashboardLayout>
                 </PrivateRoute>
               }
