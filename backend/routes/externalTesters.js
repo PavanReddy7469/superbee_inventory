@@ -9,6 +9,9 @@ router.use(authenticateToken);
 // Get all dispatches
 router.get('/', externalTestersController.getAllDispatches);
 
+// Get all inventory parts for dropdown (no pagination)
+router.get('/inventory-parts', externalTestersController.getAllInventoryParts);
+
 // Create new external testing dispatch (Admin/Superadmin)
 router.post('/', authorizeRoles('admin', 'superadmin'), externalTestersController.createDispatch);
 

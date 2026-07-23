@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { externalTestersAPI, inventoryAPI } from '../lib/api';
+import { externalTestersAPI } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import {
   Send, Search, User, Phone, Mail, MapPin, Calendar, Clock, RotateCcw,
@@ -76,14 +76,10 @@ export default function ExternalTestersPage() {
     try {
       const [dispRes, invRes] = await Promise.all([
         externalTestersAPI.getAll(),
-        inventoryAPI.getAll()
+        externalTestersAPI.getInventoryParts()
       ]);
       setDispatches(Array.isArray(dispRes.data) ? dispRes.data : []);
-
-      // Extract array from paginated API response { data: [...], total, page }
-      const rawInvData = invRes.data?.data || invRes.data || [];
-      const partsArray = Array.isArray(rawInvData) ? rawInvData : [];
-      setInventoryParts(partsArray);
+      setInventoryParts(Array.isArray(invRes.data) ? invRes.data : []);
     } catch (err) {
       console.error('Error loading external testers data:', err);
     } finally {

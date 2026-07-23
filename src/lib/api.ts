@@ -123,6 +123,7 @@ export const fixedInventoryAPI = {
 
 export const externalTestersAPI = {
   getAll: () => api.get('/external-testers'),
+  getInventoryParts: () => api.get('/external-testers/inventory-parts'),
   create: (data: any) => api.post('/external-testers', data),
   markReturned: (id: string) => api.post(`/external-testers/${id}/return`),
   markConsumed: (id: string) => api.post(`/external-testers/${id}/consumed`),

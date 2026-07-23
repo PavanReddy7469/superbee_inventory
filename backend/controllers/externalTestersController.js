@@ -25,7 +25,7 @@ async function ensureTablesExist() {
         created_by VARCHAR(36),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (part_id) REFERENCES inventory(id) ON DELETE CASCADE,
+        FOREIGN KEY (part_id) REFERENCES inventory_parts(id) ON DELETE CASCADE,
         INDEX idx_dispatch_tag (dispatch_tag),
         INDEX idx_status (status),
         INDEX idx_city (city)
@@ -44,15 +44,32 @@ exports.getAllDispatches = async (req, res) => {
   try {
     await ensureTablesExist();
     const [dispatches] = await db.query(`
-      SELECT et.*, i.name as current_inventory_name, i.quantity as current_inventory_qty
+      SELECT et.*, ip.name as current_inventory_name, ip.quantity as current_inventory_qty
       FROM external_testers et
-      LEFT JOIN inventory i ON et.part_id = i.id
+      LEFT JOIN inventory_parts ip ON et.part_id = ip.id
       ORDER BY et.dispatch_date DESC
     `);
     res.json(dispatches);
   } catch (error) {
     console.error('Get external tester dispatches error:', error);
     res.status(500).json({ error: 'Failed to fetch external tester dispatches' });
+  }
+};
+
+// Get all inventory parts (no pagination) for dropdown
+exports.getAllInventoryParts = async (req, res) => {
+  try {
+    const [parts] = await db.query(`
+      SELECT ip.id, ip.name, ip.sku, ip.quantity, c.name as category_name
+      FROM inventory_parts ip
+      LEFT JOIN categories c ON ip.category_id = c.id
+      WHERE ip.is_deleted = FALSE
+      ORDER BY ip.name ASC
+    `);
+    res.json(parts);
+  } catch (error) {
+    console.error('Get inventory parts for dropdown error:', error);
+    res.status(500).json({ error: 'Failed to fetch inventory parts' });
   }
 };
 
@@ -75,7 +92,7 @@ exports.createDispatch = async (req, res) => {
     }
 
     // Check inventory stock
-    const [parts] = await db.query('SELECT * FROM inventory WHERE id = ?', [part_id]);
+    const [parts] = await db.query('SELECT * FROM inventory_parts WHERE id = ? AND is_deleted = FALSE', [part_id]);
     if (parts.length === 0) {
       return res.status(404).json({ error: 'Selected inventory part not found' });
     }
@@ -89,7 +106,7 @@ exports.createDispatch = async (req, res) => {
 
     // Deduct stock from inventory
     const newQty = targetPart.quantity - dispatchQty;
-    await db.query('UPDATE inventory SET quantity = ? WHERE id = ?', [newQty, part_id]);
+    await db.query('UPDATE inventory_parts SET quantity = ? WHERE id = ?', [newQty, part_id]);
 
     const id = uuidv4();
     const dispatch_tag = `SBA-EXT-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -135,11 +152,11 @@ exports.markReturned = async (req, res) => {
       return res.status(400).json({ error: 'This dispatch has already been returned to stock' });
     }
 
-    // Increment stock in inventory
-    const [parts] = await db.query('SELECT quantity FROM inventory WHERE id = ?', [item.part_id]);
+    // Increment stock in inventory_parts
+    const [parts] = await db.query('SELECT quantity FROM inventory_parts WHERE id = ?', [item.part_id]);
     if (parts.length > 0) {
       const restoredQty = parts[0].quantity + item.quantity;
-      await db.query('UPDATE inventory SET quantity = ? WHERE id = ?', [restoredQty, item.part_id]);
+      await db.query('UPDATE inventory_parts SET quantity = ? WHERE id = ?', [restoredQty, item.part_id]);
     }
 
     // Update dispatch record
@@ -203,11 +220,11 @@ exports.deleteDispatch = async (req, res) => {
     }
 
     const item = dispatches[0];
-    // If deleted while still in testing, option to restore stock
+    // If deleted while still in testing, restore stock
     if (item.status === 'testing') {
-      const [parts] = await db.query('SELECT quantity FROM inventory WHERE id = ?', [item.part_id]);
+      const [parts] = await db.query('SELECT quantity FROM inventory_parts WHERE id = ?', [item.part_id]);
       if (parts.length > 0) {
-        await db.query('UPDATE inventory SET quantity = ? WHERE id = ?', [parts[0].quantity + item.quantity, item.part_id]);
+        await db.query('UPDATE inventory_parts SET quantity = ? WHERE id = ?', [parts[0].quantity + item.quantity, item.part_id]);
       }
     }
 
