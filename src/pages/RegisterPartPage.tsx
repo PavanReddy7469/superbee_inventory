@@ -71,6 +71,7 @@ export default function RegisterPartPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [manufacturerOptions, setManufacturerOptions] = useState<string[]>(['Other']);
   const [vendorOptions, setVendorOptions] = useState<string[]>(['Other']);
+  const [categoryOther, setCategoryOther] = useState(''); // Custom category text when "Other" is selected
 
   const [formData, setFormData] = useState({
     partNameType: 'name' as 'name' | 'number',
@@ -182,6 +183,23 @@ export default function RegisterPartPage() {
     if (billError) return;
     setLoading(true);
     try {
+      // If "Other" category, create a new category first and use its ID
+      let resolvedCategoryId = formData.category_id;
+      if (formData.category_id === 'other') {
+        const newCatName = categoryOther.trim();
+        if (!newCatName) {
+          alert('Please enter a category name.');
+          setLoading(false);
+          return;
+        }
+        const catRes = await categoriesAPI.create({ name: newCatName });
+        const newCat = catRes.data;
+        resolvedCategoryId = String(newCat.id);
+        setCategories(prev => [...prev, newCat]);
+        setFormData(f => ({ ...f, category_id: resolvedCategoryId }));
+        setCategoryOther('');
+      }
+
       // Save new manufacturer if custom
       if (formData.manufacturer && formData.manufacturer !== 'Other') {
         const mName = formData.manufacturer.trim();
@@ -226,7 +244,7 @@ export default function RegisterPartPage() {
       const newPart = {
         sku,
         name: formData.name,
-        category_id: formData.category_id,
+        category_id: resolvedCategoryId,
         manufacturer: formData.manufacturer,
         vendor: formData.vendor,
         bill_number: formData.bill_number,
@@ -254,6 +272,7 @@ export default function RegisterPartPage() {
       setGeneratedSKU(sku);
       setShowSuccessModal(true);
       setFormData({ partNameType: 'name', name: '', category_id: '', manufacturer: '', vendor: '', bill_number: '', serial_number: '', quantity: 0, price: 0 });
+      setCategoryOther('');
       setInvoiceFile(null);
       setBillError(''); 
       setBillOk(false);
@@ -309,15 +328,38 @@ export default function RegisterPartPage() {
               />
             </div>
 
-            {/* ── Category ── */}
+            {/* ── Category (with "Other" manual entry) ── */}
             <div>
               <label className={labelCls}>Category <span className="text-red-500">*</span></label>
-              <select value={formData.category_id}
-                onChange={e => setFormData(f => ({ ...f, category_id: e.target.value }))}
-                className={inputCls} required>
+              <select
+                value={formData.category_id === 'other' ? 'other' : formData.category_id}
+                onChange={e => {
+                  if (e.target.value === 'other') {
+                    setFormData(f => ({ ...f, category_id: 'other' }));
+                    setCategoryOther('');
+                  } else {
+                    setFormData(f => ({ ...f, category_id: e.target.value }));
+                    setCategoryOther('');
+                  }
+                }}
+                className={inputCls}
+                required={formData.category_id !== 'other'}
+              >
                 <option value="">— Select Category —</option>
                 {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                <option value="other">Other</option>
               </select>
+              {formData.category_id === 'other' && (
+                <input
+                  type="text"
+                  className={`${inputCls} mt-2`}
+                  placeholder="Enter custom category name..."
+                  value={categoryOther}
+                  onChange={e => setCategoryOther(e.target.value)}
+                  required
+                  autoFocus
+                />
+              )}
             </div>
 
             {/* ── Manufacturer (with "Other" manual entry) ── */}
