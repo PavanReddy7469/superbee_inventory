@@ -274,3 +274,18 @@ exports.withdrawRequest = async (req, res) => {
     res.status(500).json({ error: 'Failed to withdraw request' });
   }
 };
+
+// TEMP: Clear all ae_requests (superadmin only) - to be removed after use
+exports.clearAllRequests = async (req, res) => {
+  try {
+    const [countResult] = await pool.query('SELECT COUNT(*) as count FROM ae_requests');
+    const count = countResult[0].count;
+    await pool.query('DELETE FROM ae_requests');
+    await auditLog(pool, req, 'CLEAR_ALL_AE_REQUESTS', 'ae_requests', null, `Deleted all ${count} ae_requests records`);
+    res.json({ message: `Successfully deleted all ${count} procurement request records`, count });
+  } catch (error) {
+    console.error('Error clearing ae_requests:', error);
+    res.status(500).json({ error: 'Failed to clear requests' });
+  }
+};
+
