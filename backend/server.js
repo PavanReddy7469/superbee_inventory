@@ -102,6 +102,7 @@ const usersRoutes = require('./routes/users');
 const aeRequestsRoutes = require('./routes/aeRequests');
 const dashboardRoutes = require('./routes/dashboard');
 const fixedInventoryRoutes = require('./routes/fixedInventory');
+const externalTestersRoutes = require('./routes/externalTesters');
 
 // Test error endpoint for security verification of global error handler
 app.get('/api/trigger-error', (req, res, next) => {
@@ -125,6 +126,7 @@ app.use('/api/v1/users', usersRoutes);
 app.use('/api/v1/ae-requests', aeRequestsRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/fixed-inventory', fixedInventoryRoutes);
+app.use('/api/v1/external-testers', externalTestersRoutes);
 
 // Error handling middleware
 // FIX-14: Replace error handling middleware to mask stack traces and raw error messages in production

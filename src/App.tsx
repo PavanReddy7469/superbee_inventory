@@ -11,6 +11,7 @@ import CategoriesPage from './pages/CategoriesPage';
 import VendorsManufacturersPage from './pages/VendorsManufacturersPage';
 import InventoryPage from './pages/InventoryPage';
 import FixedInventoryPage from './pages/FixedInventoryPage';
+import ExternalTestersPage from './pages/ExternalTestersPage';
 import RegisterPartPage from './pages/RegisterPartPage';
 import BuyersPage from './pages/BuyersPage';
 import CartPage from './pages/CartPage';
@@ -180,6 +181,17 @@ function App() {
                 <PrivateRoute>
                   <DashboardLayout>
                     <FixedInventoryPage />
+                  </DashboardLayout>
+                </PrivateRoute>
+              }
+            />
+
+            <Route
+              path="/dashboard/external-testers"
+              element={
+                <PrivateRoute requiredRoles={['superadmin', 'admin']}>
+                  <DashboardLayout>
+                    <ExternalTestersPage />
                   </DashboardLayout>
                 </PrivateRoute>
               }

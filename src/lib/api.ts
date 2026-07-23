@@ -120,3 +120,11 @@ export const fixedInventoryAPI = {
   transfer: (id: string, data: any) => api.post(`/fixed-inventory/${id}/transfer`, data),
   delete: (id: string) => api.delete(`/fixed-inventory/${id}`),
 };
+
+export const externalTestersAPI = {
+  getAll: () => api.get('/external-testers'),
+  create: (data: any) => api.post('/external-testers', data),
+  markReturned: (id: string) => api.post(`/external-testers/${id}/return`),
+  markConsumed: (id: string) => api.post(`/external-testers/${id}/consumed`),
+  delete: (id: string) => api.delete(`/external-testers/${id}`),
+};

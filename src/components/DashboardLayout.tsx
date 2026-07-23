@@ -16,7 +16,8 @@ import {
   Key,
   ShieldAlert,
   Building2,
-  Laptop
+  Laptop,
+  FlaskConical
 } from 'lucide-react';
 import logo from '../assets/superbee.png';
 
@@ -149,6 +150,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       label: 'Fixed Inventory',
       path: '/dashboard/fixed-inventory',
       icon: <Laptop className="h-5 w-5" />
+    },
+    {
+      label: 'External Testers',
+      path: '/dashboard/external-testers',
+      icon: <FlaskConical className="h-5 w-5" />,
+      roles: ['superadmin', 'admin']
     },
 
     // Cart visible only to technicians
