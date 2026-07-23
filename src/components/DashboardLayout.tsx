@@ -101,7 +101,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       label: 'Dashboard',
       path: '/dashboard',
       icon: <LayoutDashboard className="h-5 w-5" />,
-      roles: ['superadmin', 'admin']
+      roles: ['superadmin', 'admin', 'technician']
     },
     {
       label: 'Manage Assembly Engineers',
