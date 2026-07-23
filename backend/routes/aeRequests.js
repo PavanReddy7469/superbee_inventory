@@ -51,8 +51,8 @@ router.post('/:id/reject', authorizeRoles('admin', 'superadmin'), aeRequestsCont
 // FIX-05: Technicians can withdraw, authorization is checked inside controller based on ownership
 router.post('/:id/withdraw', aeRequestsController.withdrawRequest);
 
-// TEMP: Clear all ae_requests (superadmin only)
-router.delete('/all', authorizeRoles('superadmin'), aeRequestsController.clearAllRequests);
+// TEMP: Clear all ae_requests (admin/superadmin only)
+router.delete('/all', authorizeRoles('admin', 'superadmin'), aeRequestsController.clearAllRequests);
 
 module.exports = router;
 
