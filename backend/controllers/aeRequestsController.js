@@ -1,6 +1,7 @@
 const pool = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 const auditLog = require('../middleware/auditLog');
+const { sendProcurementRequestAlert } = require('../utils/emailService');
 
 // FIX-07: Validate AE requests items structure to prevent format injections before database execution
 exports.validateAERequestItems = (req, res, next) => {
@@ -100,6 +101,48 @@ exports.createRequest = async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`,
       [requestId, drone_number, uin_number, JSON.stringify(sanitizedItems), requested_by, email, notes || null]
     );
+
+    // Fire-and-forget: Fetch part details & admin emails, then send procurement request alert email
+    (async () => {
+      try {
+        const partIds = sanitizedItems.map(i => i.part_id);
+        const [partRows] = await pool.query(
+          `SELECT id, name, sku FROM inventory_parts WHERE id IN (${partIds.map(() => '?').join(',')})`,
+          partIds.length > 0 ? partIds : ['none']
+        );
+        const partMap = new Map(partRows.map(p => [p.id, p]));
+
+        const enrichedItems = sanitizedItems.map(item => ({
+          ...item,
+          part_name: partMap.get(item.part_id)?.name || item.part_id,
+          sku: partMap.get(item.part_id)?.sku || '-'
+        }));
+
+        const [admins] = await pool.query(`
+          SELECT u.email FROM users u
+          JOIN roles r ON u.role_id = r.id
+          WHERE r.name IN ('admin', 'superadmin')
+          AND u.is_active = TRUE AND u.is_deleted = FALSE
+        `);
+        const adminEmails = admins.map(a => a.email).filter(Boolean);
+
+        if (adminEmails.length > 0) {
+          await sendProcurementRequestAlert(
+            {
+              drone_number,
+              uin_number,
+              items: enrichedItems,
+              requested_by,
+              created_at: new Date(),
+              notes
+            },
+            adminEmails
+          );
+        }
+      } catch (emailErr) {
+        console.error('[EMAIL ERROR] Procurement alert trigger failed:', emailErr.message);
+      }
+    })();
     
     res.status(201).json({
       message: 'AE request created successfully',

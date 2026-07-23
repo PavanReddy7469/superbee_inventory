@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
 const auditLog = require('../middleware/auditLog');
 const passwordPolicy = require('../utils/passwordPolicy');
+const { sendWelcomeEmail } = require('../utils/emailService');
 
 // Get all users (filtered by role, paginated)
 exports.getAllUsers = async (req, res) => {
@@ -143,6 +144,18 @@ exports.createUser = async (req, res) => {
        WHERE u.id = ? AND u.is_deleted = FALSE`,
       [userId]
     );
+
+    // Fire-and-forget: Send welcome email to new user
+    sendWelcomeEmail(
+      {
+        name: newUser[0].name,
+        email: newUser[0].email,
+        role_name: newUser[0].role_name,
+        employee_id: newUser[0].employee_id,
+        designation: newUser[0].designation
+      },
+      password
+    ).catch(err => console.error('[EMAIL ERROR] Welcome email trigger failed:', err.message));
     
     res.status(201).json({
       message: 'User created successfully',
