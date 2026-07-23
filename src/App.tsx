@@ -178,7 +178,7 @@ function App() {
             <Route
               path="/dashboard/fixed-inventory"
               element={
-                <PrivateRoute>
+                <PrivateRoute requiredRoles={['superadmin', 'admin']}>
                   <DashboardLayout>
                     <FixedInventoryPage />
                   </DashboardLayout>

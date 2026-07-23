@@ -149,7 +149,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     {
       label: 'Fixed Inventory',
       path: '/dashboard/fixed-inventory',
-      icon: <Laptop className="h-5 w-5" />
+      icon: <Laptop className="h-5 w-5" />,
+      roles: ['superadmin', 'admin']
     },
     {
       label: 'External Testers',
