@@ -70,12 +70,7 @@ export default function LoginPage() {
         navigate('/dashboard');
       }
     } catch (err: any) {
-      if (err.message && (err.message.includes('Too many login attempts') || err.message.includes('15 min') || err.message.includes('429'))) {
-        setError('Too many login attempts. Please try again in 15 minutes.');
-        setLockoutTime(900); // 15 minutes client lock
-      } else {
-        setError(err.message || 'Invalid email or password');
-      }
+      setError(err.message || 'Invalid email or password');
       console.error('Login error:', err);
     } finally {
       setLoading(false);

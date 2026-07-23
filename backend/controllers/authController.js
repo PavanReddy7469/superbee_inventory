@@ -16,27 +16,6 @@ exports.login = async (req, res) => {
       return res.status(400).json({ error: 'Email and password required' });
     }
 
-    // FIX-06: Lock account for 15 mins after 5 failed attempts from same email + IP address
-    const [locks] = await db.query(`
-      SELECT COUNT(*) as failed_count 
-      FROM login_attempts 
-      WHERE email = ? AND ip_address = ? AND success = FALSE 
-        AND attempt_time > DATE_SUB(NOW(), INTERVAL 15 MINUTE)
-    `, [email, ipAddress]);
-
-    if (locks[0].failed_count >= 5) {
-      // Log attempt as failed (locked)
-      await db.query(`
-        INSERT INTO login_attempts (email, ip_address, user_agent, success)
-        VALUES (?, ?, ?, FALSE)
-      `, [email, ipAddress, userAgent]);
-      
-      // FIX-09: Log locked login failure to audit_logs table
-      await auditLog(db, req, 'LOGIN_FAILED', 'users', null, `Failed login attempt: Account locked for email: ${email}`);
-      
-      return res.status(429).json({ error: 'Account locked due to too many failed login attempts. Try again in 15 minutes.' });
-    }
-
     // Get user with role (excluding soft-deleted users)
     const [users] = await db.query(`
       SELECT u.*, r.name as role_name, r.level as role_level
