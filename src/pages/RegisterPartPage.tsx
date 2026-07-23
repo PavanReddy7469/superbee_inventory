@@ -79,6 +79,7 @@ export default function RegisterPartPage() {
     manufacturer: '',
     vendor: '',
     bill_number: '',
+    serial_number: '',
     quantity: 0,
     price: 0,
   });
@@ -228,7 +229,8 @@ export default function RegisterPartPage() {
         category_id: formData.category_id,
         manufacturer: formData.manufacturer,
         vendor: formData.vendor,
-        serial_number: formData.bill_number || '',
+        bill_number: formData.bill_number,
+        serial_number: formData.serial_number || '',
         quantity: formData.quantity,
         price: formData.price,
         status: 'active',
@@ -251,7 +253,7 @@ export default function RegisterPartPage() {
       
       setGeneratedSKU(sku);
       setShowSuccessModal(true);
-      setFormData({ partNameType: 'name', name: '', category_id: '', manufacturer: '', vendor: '', bill_number: '', quantity: 0, price: 0 });
+      setFormData({ partNameType: 'name', name: '', category_id: '', manufacturer: '', vendor: '', bill_number: '', serial_number: '', quantity: 0, price: 0 });
       setInvoiceFile(null);
       setBillError(''); 
       setBillOk(false);
@@ -338,13 +340,12 @@ export default function RegisterPartPage() {
               placeholder="— Select Vendor —"
             />
 
-            {/* ── Bill / Invoice Number — dropdown + manual ── */}
+            {/* ── Bill / Invoice Number ── */}
             <div>
               <label className={labelCls}>
                 Bill / Invoice Number <span className="text-red-500">*</span>
               </label>
 
-              {/* Manual text input for bill number */}
               <div className="relative">
                 <input
                   type="text"
@@ -367,6 +368,20 @@ export default function RegisterPartPage() {
                   <CheckCircle2 className="h-3 w-3" /> Bill number is available
                 </p>
               )}
+            </div>
+
+            {/* ── Serial No. (Optional) ── */}
+            <div>
+              <label className={labelCls}>
+                Serial No. <span className="text-slate-400 font-normal text-xs">(Optional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. SN-987654321"
+                value={formData.serial_number}
+                onChange={e => setFormData(f => ({ ...f, serial_number: e.target.value }))}
+                className={inputCls}
+              />
             </div>
 
             {/* ── Quantity ── */}

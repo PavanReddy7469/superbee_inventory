@@ -33,6 +33,7 @@ interface EditForm {
   name: string;
   category_id: string;
   manufacturer: string;
+  bill_number: string;
   serial_number: string;
   quantity: number;
   price: number;
@@ -55,7 +56,7 @@ export default function InventoryPage() {
   // Edit
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingPart, setEditingPart] = useState<InventoryPart | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({ name: '', category_id: '', manufacturer: '', serial_number: '', quantity: 0, price: 0, status: 'active' });
+  const [editForm, setEditForm] = useState<EditForm>({ name: '', category_id: '', manufacturer: '', bill_number: '', serial_number: '', quantity: 0, price: 0, status: 'active' });
   const [editSaving, setEditSaving] = useState(false);
 
   // Delete
@@ -104,7 +105,16 @@ export default function InventoryPage() {
   // ── Edit handlers ──
   const openEdit = (part: InventoryPart) => {
     setEditingPart(part);
-    setEditForm({ name: part.name, category_id: part.category_id, manufacturer: part.manufacturer, serial_number: part.serial_number || '', quantity: part.quantity, price: part.price, status: part.status });
+    setEditForm({
+      name: part.name,
+      category_id: part.category_id,
+      manufacturer: part.manufacturer,
+      bill_number: part.bill_number || part.serial_number || '',
+      serial_number: part.bill_number ? (part.serial_number || '') : '',
+      quantity: part.quantity,
+      price: part.price,
+      status: part.status
+    });
     setShowEditModal(true);
   };
 
@@ -173,7 +183,7 @@ export default function InventoryPage() {
 
   const generateInvoiceText = (part: InventoryPart) => {
     const now = new Date();
-    return `========================================\n        SUPERBEE AERONAUTICS\n        INVENTORY INVOICE\n========================================\nDate       : ${now.toLocaleDateString()}\nTime       : ${now.toLocaleTimeString()}\nInvoice No : INV-${part.sku}-${now.getFullYear()}\n----------------------------------------\nPart Name  : ${part.name}\nSKU        : ${part.sku}\nCategory   : ${(part as any).category?.name || 'N/A'}\nManufacturer: ${part.manufacturer}\nSerial No  : ${part.serial_number || 'N/A'}\nQuantity   : ${part.quantity} units\nUnit Price : ₹${part.price.toFixed(2)}\n----------------------------------------\nTOTAL      : ₹${(part.price * part.quantity).toFixed(2)}\n========================================\nStatus     : ${part.quantity > 0 ? 'Stock Available' : 'Out of Stock'}\n========================================\nThank you for using Superbee Aeronautics\nInventory Management Portal`;
+    return `========================================\n        SUPERBEE AERONAUTICS\n        INVENTORY INVOICE\n========================================\nDate       : ${now.toLocaleDateString()}\nTime       : ${now.toLocaleTimeString()}\nInvoice No : INV-${part.sku}-${now.getFullYear()}\n----------------------------------------\nPart Name  : ${part.name}\nSKU        : ${part.sku}\nCategory   : ${(part as any).category?.name || 'N/A'}\nManufacturer: ${part.manufacturer}\nBill / Inv : ${part.bill_number || part.serial_number || 'N/A'}\nSerial No  : ${part.bill_number ? (part.serial_number || 'N/A') : 'N/A'}\nQuantity   : ${part.quantity} units\nUnit Price : ₹${part.price.toFixed(2)}\n----------------------------------------\nTOTAL      : ₹${(part.price * part.quantity).toFixed(2)}\n========================================\nStatus     : ${part.quantity > 0 ? 'Stock Available' : 'Out of Stock'}\n========================================\nThank you for using Superbee Aeronautics\nInventory Management Portal`;
   };
 
   const downloadInvoice = (part: InventoryPart) => {
@@ -198,7 +208,9 @@ export default function InventoryPage() {
     let list = parts.filter(p =>
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.manufacturer.toLowerCase().includes(searchTerm.toLowerCase())
+      p.manufacturer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.bill_number && p.bill_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (p.serial_number && p.serial_number.toLowerCase().includes(searchTerm.toLowerCase()))
     );
     if (sortByStock === 'desc') list = [...list].sort((a, b) => b.quantity - a.quantity);
     else if (sortByStock === 'asc') list = [...list].sort((a, b) => a.quantity - b.quantity);
@@ -256,6 +268,7 @@ export default function InventoryPage() {
                 <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">Name</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">Category</th>
                 {profile?.role?.name !== 'technician' && <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">Manufacturer</th>}
+                {profile?.role?.name !== 'technician' && <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">Bill / Invoice No.</th>}
                 {profile?.role?.name !== 'technician' && <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">Serial No.</th>}
                 <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">Quantity</th>
                 {profile?.role?.name !== 'technician' && <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">Price</th>}
@@ -278,7 +291,8 @@ export default function InventoryPage() {
                   <td className="px-4 py-3 text-sm text-slate-900">{part.name}</td>
                   <td className="px-4 py-3 text-sm text-slate-900">{(part as any).category?.name}</td>
                   {profile?.role?.name !== 'technician' && <td className="px-4 py-3 text-sm text-slate-900">{part.manufacturer}</td>}
-                  {profile?.role?.name !== 'technician' && <td className="px-4 py-3 text-sm text-slate-900">{part.serial_number || '-'}</td>}
+                  {profile?.role?.name !== 'technician' && <td className="px-4 py-3 text-sm text-slate-900 font-mono">{part.bill_number || part.serial_number || '-'}</td>}
+                  {profile?.role?.name !== 'technician' && <td className="px-4 py-3 text-sm text-slate-900">{part.bill_number ? (part.serial_number || '-') : '-'}</td>}
                   <td className="px-4 py-3 text-sm font-medium text-slate-900">{part.quantity}</td>
                   {profile?.role?.name !== 'technician' && <td className="px-4 py-3 text-sm text-slate-900">₹{part.price.toFixed(2)}</td>}
 
@@ -387,7 +401,12 @@ export default function InventoryPage() {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Serial Number</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Bill / Invoice Number</label>
+                <input type="text" value={editForm.bill_number} onChange={e => setEditForm(f => ({ ...f, bill_number: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Serial Number <span className="text-slate-400 font-normal text-[10px]">(Optional)</span></label>
                 <input type="text" value={editForm.serial_number} onChange={e => setEditForm(f => ({ ...f, serial_number: e.target.value }))}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400" />
               </div>
