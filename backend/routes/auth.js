@@ -4,14 +4,11 @@ const { body } = require('express-validator');
 const validate = require('../middleware/validate');
 const authController = require('../controllers/authController');
 const { authenticateToken } = require('../middleware/auth');
-const { loginLimiter } = require('../middleware/rateLimiter');
 
 // Public routes
-// FIX-06: Apply login rate limiter to protect /login from brute-force authentication attempts
 // FIX-07: Validate login inputs (email and password existence)
 router.post(
   '/login', 
-  loginLimiter, 
   [
     body('email')
       .isEmail().withMessage('Must be a valid email'),
